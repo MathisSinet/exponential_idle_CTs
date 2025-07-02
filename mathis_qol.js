@@ -57,8 +57,17 @@ var getPrimaryEquation = () => {
 
 var getSecondaryEquation = () => {
     let result = "";
-
-    if (game.activeTheory.id == 5)
+    if (game.activeTheory.id == 4){ // t5
+        let theory = game.activeTheory;
+        let upgrades = theory.upgrades;
+        let c2 = BigNumber.TWO.pow(upgrades[3].level);
+        let c3 = BigNumber.TWO.pow(upgrades[4].level*1.1);
+        let qmax = c2 * c3;
+        let qflip = qmax * BigNumber.from(2/3)
+        result += "q \\text{ flip point:}" + qflip.toString() + "\\\\";
+        result += "q \\text{ cap:}" + qmax.toString();
+    }
+    else if (game.activeTheory.id == 5) // t6
     {
         let theory = game.activeTheory;
         let upgrades = theory.upgrades;
@@ -76,7 +85,7 @@ var getSecondaryEquation = () => {
 }
 
 var getQuaternaryEntries = () => {
-    if (game.activeTheory.id == 6)
+    if (game.activeTheory.id == 6) // t7
     {
         if (quaternaryEntries = [])
         {
@@ -119,7 +128,7 @@ var getQuaternaryEntries = () => {
         quaternaryEntries[4].value = (BigNumber.HUNDRED * drho22 / rho2tot).toString(3);
         quaternaryEntries[5].value = (BigNumber.HUNDRED * drho23 / rho2tot).toString(3);
     }
-    else if (game.activeTheory.id == 2)
+    else if (game.activeTheory.id == 2) // t3
     {
         if (quaternaryEntries = [])
         {
@@ -174,7 +183,7 @@ var getQuaternaryEntries = () => {
         quaternaryEntries[8].value = (BigNumber.HUNDRED * drho33 / rho3tot).toString(3);
 
     }
-    else if (game.activeTheory.id == 0)
+    else if (game.activeTheory.id == 0) // t1
     {
         if (quaternaryEntries = [])
         {
