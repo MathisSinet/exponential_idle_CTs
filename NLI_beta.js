@@ -1,4 +1,4 @@
-import { BigNumber } from '../api/BigNumber';
+import { BigNumber, parseBigNumber } from '../api/BigNumber';
 import { theory, QuaternaryEntry } from "../api/Theory";
 import { Localization } from "../api/Localization";
 import { ExponentialCost, FirstFreeCost, FreeCost } from '../api/Costs';
@@ -7,9 +7,9 @@ import { log } from 'winjs';
 
 var id = "nli_beta";
 
-const phi = BigNumber.from((1 + Math.sqrt(5))/2)
-const ZERO = BigNumber.ZERO
-const ONE = BigNumber.ONE
+const phi = BigNumber.from((1 + Math.sqrt(5))/2);
+const ZERO = BigNumber.ZERO;
+const ONE = BigNumber.ONE;
 
 
 var getName = (language) => {
@@ -73,6 +73,8 @@ let getLoc = (name, lang = menuLang) =>
 
 var alphaMode = false;
 
+let maxk = ZERO;
+
 // Currencies
 var currencyRho;
 var currencyAlpha;
@@ -80,36 +82,52 @@ var currencyAlpha;
 // Upgrades
 var a0, a1, a2;
 var b0, b1;
+var a0a, a1a, a2a;
+var b0a, b1a;
 var switcher;
 
 // UI
 var rhodot = ZERO;
 var alphadot = ZERO;
-
+var cur_k = ZERO;
 
 //////////
 // Balance
 
+const pubMultExp = 0.1;
+const tauExpMult = BigNumber.from(1/5);
+
+const permaCosts = [
+    1e8,
+    1e5,
+    1e5
+]
+
 const a0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const a0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 var getA0 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0)
 
 const a1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const a1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 var getA1 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0)
 
 const a2Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const a2aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 var getA2 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0)
 
 const b0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const b0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 var getB0 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0)
 
 const b1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const b1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 var getB1 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0)
 
-var getPublicationMultiplier = (tau) => BigNumber.ZERO;
+var getPublicationMultiplier = (tau) => tau.pow(pubMultExp);
 
-var getPublicationMultiplierFormula = (symbol) => "";
+var getPublicationMultiplierFormula = (symbol) => `{${symbol}}^{${pubMultExp}}`;
 
-var getTau = () => currencyRho.value;
+var getTau = () => (currencyRho.value).pow((maxk + BigNumber.from(10.0001)).log10().log10() * tauExpMult);
 
 //var getCurrencyFromTau = (tau) => [value, symbol];
 
@@ -150,9 +168,20 @@ let getTimeString = (time) =>
     return timeString;
 };
 
+// Evaluates a polynomial at a given point. Inputs must be BigNumbers
+var evalp = (poly, point) => {
+    var res = ZERO;
+
+    for (let i=0; i<poly.length; i++) {
+        res += poly[i] * point.pow(i);
+    }
+
+    return res;
+}
+
 // Computes the Riemann-Stieltjes integral from two polynomials
 var rspInt = (poly1, poly2, lBound, hBound) => {
-    var res = BigNumber.ZERO;
+    var res = ZERO;
 
     for (let i=0; i<poly1.length; i++){
         for (let j=1; j<poly2.length; j++){
@@ -169,8 +198,9 @@ var rspInt = (poly1, poly2, lBound, hBound) => {
 
 var switchMode = () => {
     alphaMode = !alphaMode;
-    theory.invalidatePrimaryEquation();
-    theory.invalidateSecondaryEquation();
+
+    currencyRho.value = ZERO;
+    currencyAlpha.value = ZERO;
 
     a0.level = 0;
     a1.level = 0;
@@ -178,8 +208,20 @@ var switchMode = () => {
     b0.level = 0;
     b1.level = 0;
 
+    a0a.level = 0;
+    a1a.level = 0;
+    a2a.level = 0;
+    b0a.level = 0;
+    b1a.level = 0;
+
     rhodot = ZERO;
     alphadot = ZERO;
+
+    theory.invalidatePrimaryEquation();
+    theory.invalidateSecondaryEquation();
+    theory.invalidateTertiaryEquation();
+    theory.clearGraph();
+    updateAvailability();
 }
 
 var init = () => {
@@ -200,6 +242,7 @@ var init = () => {
         switcher.isAutoBuyable = false;
     }
 
+    // Rho Upgrades
     {
         let getDesc = (level) => `a_0=${getA0(level).toString(0)}`;
         a0 = theory.createUpgrade(1, currencyRho, a0Cost);
@@ -221,21 +264,56 @@ var init = () => {
 
     {
         let getDesc = (level) => `b_0=${getB0(level).toString(0)}`;
-        b0 = theory.createUpgrade(4, currencyAlpha, b0Cost);
+        b0 = theory.createUpgrade(4, currencyRho, b0Cost);
         b0.getDescription = (_) => Utils.getMath(getDesc(b0.level));
         b0.getInfo = (amount) => Utils.getMathTo(getDesc(b0.level), getDesc(b0.level + amount));
     }
     {
         let getDesc = (level) => `b_1=${getB1(level).toString(0)}`;
-        b1 = theory.createUpgrade(5, currencyAlpha, b0Cost);
+        b1 = theory.createUpgrade(5, currencyRho, b1Cost);
         b1.getDescription = (_) => Utils.getMath(getDesc(b1.level));
         b1.getInfo = (amount) => Utils.getMathTo(getDesc(b1.level), getDesc(b1.level + amount));
     }
-    
+
+
+    // Alpha Upgrades
+    {
+        let getDesc = (level) => `a_0=${getA0(level).toString(0)}`;
+        a0a = theory.createUpgrade(11, currencyAlpha, a0aCost);
+        a0a.getDescription = (_) => Utils.getMath(getDesc(a0a.level));
+        a0a.getInfo = (amount) => Utils.getMathTo(getDesc(a0a.level), getDesc(a0a.level + amount));
+    }
+    {
+        let getDesc = (level) => `a_1=${getA1(level).toString(0)}`;
+        a1a = theory.createUpgrade(12, currencyAlpha, a1aCost);
+        a1a.getDescription = (_) => Utils.getMath(getDesc(a1a.level));
+        a1a.getInfo = (amount) => Utils.getMathTo(getDesc(a1a.level), getDesc(a1a.level + amount));
+    }
+    {
+        let getDesc = (level) => `a_2=${getA2(level).toString(0)}`;
+        a2a = theory.createUpgrade(13, currencyAlpha, a2aCost);
+        a2a.getDescription = (_) => Utils.getMath(getDesc(a2a.level));
+        a2a.getInfo = (amount) => Utils.getMathTo(getDesc(a2a.level), getDesc(a2a.level + amount));
+    }
+
+    {
+        let getDesc = (level) => `b_0=${getB0(level).toString(0)}`;
+        b0a = theory.createUpgrade(14, currencyAlpha, b0aCost);
+        b0a.getDescription = (_) => Utils.getMath(getDesc(b0a.level));
+        b0a.getInfo = (amount) => Utils.getMathTo(getDesc(b0a.level), getDesc(b0a.level + amount));
+    }
+    {
+        let getDesc = (level) => `b_1=${getB1(level).toString(0)}`;
+        b1a = theory.createUpgrade(15, currencyAlpha, b1aCost);
+        b1a.getDescription = (_) => Utils.getMath(getDesc(b1a.level));
+        b1a.getInfo = (amount) => Utils.getMathTo(getDesc(b1a.level), getDesc(b1a.level + amount));
+    }
 
     /////////////////////
     // Permanent Upgrades
-
+    theory.createPublicationUpgrade(0, currencyRho, permaCosts[0]);
+    //theory.createBuyAllUpgrade(1, currencyRho, permaCosts[1]);
+    //theory.createAutoBuyerUpgrade(2, currencyRho, permaCosts[2]);
 
     ///////////////////////
     //// Milestone Upgrades
@@ -245,25 +323,30 @@ var init = () => {
 }
 
 var updateAvailability = () => {
-
+    // Upgrades
+    for (var v of [a0,a1,a2,b0,b1]) {
+        v.isAvailable = !alphaMode;
+    }
+    for (var v of [a0a,a1a,a2a,b0a,b1a]) {
+        v.isAvailable = alphaMode;
+    }
 }
 
 var tick = (elapsedTime, multiplier) => {
-    if (a0.level === 0){
-        return;
-    }
-
     const dt = elapsedTime * multiplier;
 
-    const va0 = getA0(a0.level);
-    const va1 = getA1(a1.level);
-    const va2 = getA2(a2.level);
+    const va0 = getA0((alphaMode ? a0a : a0).level);
+    const va1 = getA1((alphaMode ? a1a : a1).level);
+    const va2 = getA2((alphaMode ? a2a : a2).level);
 
-    const vb0 = getB0(b0.level);
-    const vb1 = getB1(b1.level);
+    const vb0 = getB0((alphaMode ? b0a : b0).level);
+    const vb1 = getB1((alphaMode ? b1a : b1).level);
 
     const k = [va0, va1, va2];
     const h = [vb0, vb1];
+
+    cur_k = evalp(k, phi);
+    maxk = maxk.max(cur_k);
 
     if (alphaMode) {
         const integral = rspInt(h, k, ZERO, phi);
@@ -276,32 +359,46 @@ var tick = (elapsedTime, multiplier) => {
         currencyRho.value += rhodot * elapsedTime;
     }
     
-    theory.invalidateSecondaryEquation()
+    theory.invalidateSecondaryEquation();
+    theory.invalidateTertiaryEquation();
 }
 
 var postPublish = () => {
+    currencyRho.value = ZERO;
+    currencyAlpha.value = ZERO;
+    maxk = ZERO;
 
+    rhodot = ZERO;
+    alphadot = ZERO;
+
+    theory.invalidateSecondaryEquation();
 }
 
 var getInternalState = () => JSON.stringify({
-    version
+    version,
+    alphaMode,
+    maxk: maxk.toBase64String()
 })
 
 var setInternalState = (stateStr) => {
     if (!stateStr) return;
 
-    const state = JSON.parse(stateStr)
+    const state = JSON.parse(stateStr);
+    alphaMode = state.alphaMode ?? false;
+    maxk = BigNumber.fromBase64String(state.maxk ?? ZERO.toBase64String());
 }
 
 
 /////
 // UI
 
+var isCurrencyVisible = (index) => !(index ^ alphaMode);
+
 var getPrimaryEquation = () => {
     let result = ``;
 
-    theory.primaryEquationHeight = 110
-    theory.primaryEquationScale = 1.2
+    theory.primaryEquationHeight = 100
+    theory.primaryEquationScale = 1.25
 
     if (alphaMode) {
         result += `\\dot{\\alpha}=\\int_{0}^{\\phi}{h(x)dk(x)}`;
@@ -317,8 +414,8 @@ var getPrimaryEquation = () => {
 var getSecondaryEquation = () => {
     let result = ``;
 
-    theory.secondaryEquationHeight = 80;
-    theory.secondaryEquationScale = 1.1;
+    theory.secondaryEquationHeight = 100;
+    theory.secondaryEquationScale = 1.25;
 
     result += `k(x) = {a_2}x^2 + {a_1}x + a_0\\\\h(x) = {b_1}x + b_0\\\\`;
     if (alphaMode) {
@@ -328,17 +425,23 @@ var getSecondaryEquation = () => {
         result += `\\dot{\\rho} = ${rhodot.toString()}`;
     }
 
+    result += `\\\\${theory.latexSymbol}=\\max\\rho^{\\log_{10}(\\log_{10}(\\max{k(\\phi)}))/5}`;
+
     return result;
 }
 
 var getTertiaryEquation = () => {
     let result = ``;
 
-    result += `${theory.latexSymbol}=\\max\\rho`;
+    result += `k(\\phi)=${cur_k},\\max{k(\\phi)} = ${maxk}`;
+    result += `,\\\\ \\log_{10}(\\log_{10}(\\max{k(\\phi)}))/5=${(maxk + BigNumber.from(10.0001)).log10().log10() * tauExpMult}`
+    result += `,\\rho^{\\log_{10}(\\log_{10}(\\max{k(\\phi)}))/5}=${getTau()}`;
 
     return result;
 }
 
-var get2DGraphValue = () => currencyRho.value.sign * (BigNumber.ONE + currencyRho.value.abs()).log10().toNumber()
+var get2DGraphValue = () => alphaMode ?
+    currencyAlpha.value.sign * (BigNumber.ONE + currencyAlpha.value.abs()).log10().toNumber()
+    : currencyRho.value.sign * (BigNumber.ONE + currencyRho.value.abs()).log10().toNumber()
 
 init();
