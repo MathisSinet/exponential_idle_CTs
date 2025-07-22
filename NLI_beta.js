@@ -73,7 +73,7 @@ let getLoc = (name, lang = menuLang) =>
 
 var alphaMode = false;
 
-let maxk = ZERO;
+let maxh = ZERO;
 
 // Currencies
 var currencyRho;
@@ -89,7 +89,7 @@ var switcher;
 // UI
 var rhodot = ZERO;
 var alphadot = ZERO;
-var cur_k = ZERO;
+var cur_h = ZERO;
 
 //////////
 // Balance
@@ -127,7 +127,7 @@ var getPublicationMultiplier = (tau) => tau.pow(pubMultExp);
 
 var getPublicationMultiplierFormula = (symbol) => `{${symbol}}^{${pubMultExp}}`;
 
-var getTau = () => (currencyRho.value).pow((maxk + BigNumber.from(10.0001)).log10().log10() * tauExpMult);
+var getTau = () => (currencyRho.value).pow((maxh + BigNumber.from(10.0001)).log10().log10() * tauExpMult);
 
 //var getCurrencyFromTau = (tau) => [value, symbol];
 
@@ -345,8 +345,8 @@ var tick = (elapsedTime, multiplier) => {
     const k = [va0, va1, va2];
     const h = [vb0, vb1];
 
-    cur_k = evalp(k, phi);
-    maxk = maxk.max(cur_k);
+    cur_h = evalp(h, phi);
+    maxh = maxh.max(cur_h);
 
     if (alphaMode) {
         const integral = rspInt(h, k, ZERO, phi);
@@ -366,7 +366,7 @@ var tick = (elapsedTime, multiplier) => {
 var postPublish = () => {
     currencyRho.value = ZERO;
     currencyAlpha.value = ZERO;
-    maxk = ZERO;
+    maxh = ZERO;
 
     rhodot = ZERO;
     alphadot = ZERO;
@@ -377,7 +377,7 @@ var postPublish = () => {
 var getInternalState = () => JSON.stringify({
     version,
     alphaMode,
-    maxk: maxk.toBase64String()
+    maxh: maxh.toBase64String()
 })
 
 var setInternalState = (stateStr) => {
@@ -385,7 +385,7 @@ var setInternalState = (stateStr) => {
 
     const state = JSON.parse(stateStr);
     alphaMode = state.alphaMode ?? false;
-    maxk = BigNumber.fromBase64String(state.maxk ?? ZERO.toBase64String());
+    maxh = BigNumber.fromBase64String(state.maxh ?? ZERO.toBase64String());
 }
 
 
@@ -425,7 +425,7 @@ var getSecondaryEquation = () => {
         result += `\\dot{\\rho} = ${rhodot.toString()}`;
     }
 
-    result += `\\\\${theory.latexSymbol}=\\max\\rho^{\\log_{10}(\\log_{10}(\\max{k(\\phi)}))/5}`;
+    result += `\\\\${theory.latexSymbol}=\\max\\rho^{\\log_{10}(\\log_{10}(\\max{h(\\phi)}))/5}`;
 
     return result;
 }
@@ -433,9 +433,9 @@ var getSecondaryEquation = () => {
 var getTertiaryEquation = () => {
     let result = ``;
 
-    result += `k(\\phi)=${cur_k},\\max{k(\\phi)} = ${maxk}`;
-    result += `,\\\\ \\log_{10}(\\log_{10}(\\max{k(\\phi)}))/5=${(maxk + BigNumber.from(10.0001)).log10().log10() * tauExpMult}`
-    result += `,\\rho^{\\log_{10}(\\log_{10}(\\max{k(\\phi)}))/5}=${getTau()}`;
+    result += `k(\\phi)=${cur_h},\\max{h(\\phi)} = ${maxh}`;
+    result += `,\\\\ \\log_{10}(\\log_{10}(\\max{h(\\phi)}))/5=${(maxh + BigNumber.from(10.0001)).log10().log10() * tauExpMult}`
+    result += `,\\rho^{\\log_{10}(\\log_{10}(\\max{h(\\phi)}))/5}=${getTau()}`;
 
     return result;
 }
