@@ -58,7 +58,7 @@ let cBigNum = BigNumber.from(c);
 let c0 = 1n;
 let c0BigNum = BigNumber.from(c0);
 let ctimer = 0;
-let t = ZERO;
+let t = 0;
 
 // Balance
 const tauRate = 0.04;
@@ -171,6 +171,8 @@ var init = () => {
 
 
 var tick = (elapsedTime, multiplier) => {
+    if (!q1.level) return;
+
     ctimer += elapsedTime * 10;
     let turned = false;
     while(ctimer + 1e-8 >= cooldown[cooldownMs.level])
@@ -179,17 +181,20 @@ var tick = (elapsedTime, multiplier) => {
         ctimer -= cooldown[cooldownMs.level];
         cIterProgBar.progressTo(0, 33, Easing.LINEAR);
 
-        if(c % 2n != 0)
-            c = 3n * c + 1n;
-        else
-            c /= 2n;
-        cBigNum = BigNumber.from(c);
-
         if (c == 1n) {
             c0 += 1n;
             c = c0;
             cBigNum = BigNumber.from(c);
             c0BigNum = BigNumber.from(c0);
+            t++;
+        }
+        else {
+            if(c % 2n != 0)
+                c = 3n * c + 1n;
+            else
+                c /= 2n;
+            cBigNum = BigNumber.from(c);
+            t++;
         }
 
         //theory.invalidatePrimaryEquation();
@@ -205,8 +210,7 @@ var tick = (elapsedTime, multiplier) => {
     const vq1 = getq1(q1.level);
     const vq2 = getq2(q2.level);
 
-    t += dt;
-    const rhodot = vq1 * vq2 * t * cBigNum;
+    const rhodot = vq1 * vq2 * t * c0BigNum;
 
     currency.value += rhodot * dt;
 
@@ -214,14 +218,14 @@ var tick = (elapsedTime, multiplier) => {
 }
 
 var postPublish = () => {
-    t = ZERO;
+    t = 0;
     ctimer = 0;
     c = c0;
 }
 
 var getInternalState = () => JSON.stringify
 ({
-    t: t.toString(2),
+    t,
     c: c.toString(),
     c0: c0.toString(),
     ctimer,
@@ -291,17 +295,23 @@ var getPrimaryEquation = () => {
 
     let result = `\\begin{matrix}c\\leftarrow\\begin{cases}`
     + `c/2&\\text{{if }}{{c\\equiv0\\text{ (mod 2)}}}\\\\`
-    + `3c+1&\\text{{if }}{{c\\equiv1\\text{ (mod 2)}}}\\\\`
-    + `\\end{cases}\\end{matrix}`;
+    + `3c+1&\\text{{if }}{{c\\equiv1\\text{ (mod 2)}}}`
+    + `\\end{cases}\\\\`
+    + `c = 1 \\Rightarrow {c_0} \\leftarrow {c_0} + 1; c \\leftarrow c_0`
+    + `\\end{matrix}`;
 
     return result;
 }
 
 var getSecondaryEquation = () => {
+    theory.secondaryEquationHeight = 80;
+    theory.secondaryEquationScale = 1.2;
+
     cStr = `c=${cBigNum.toString(0)}`;
     c0Str = `c0=${c0BigNum.toString(0)}`;
 
     let result = "\\begin{matrix}";
+    result += `\\dot{\\rho} = {q_1}{q_2}{t}{c_0}\\\\`;
     result += `${cStr}\\\\${c0Str}`;
     result += `\\end{matrix}`;
 
@@ -309,7 +319,7 @@ var getSecondaryEquation = () => {
 }
 
 var getTertiaryEquation = () => {
-    return `${theory.latexSymbol} = \\max \\rho^{${tauRate}} \\quad t = ${t.toString(1)}`;
+    return `${theory.latexSymbol} = \\max \\rho^{${tauRate}} \\quad t = ${t}`;
 }
 
 init();
