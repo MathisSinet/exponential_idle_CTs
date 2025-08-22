@@ -433,7 +433,7 @@ var getSecondaryEquation = () => {
 var getTertiaryEquation = () => {
     let result = ``;
 
-    result += `k(\\phi)=${cur_h},\\max{h(\\phi)} = ${maxh}`;
+    result += `h(\\phi)=${cur_h},\\max{h(\\phi)} = ${maxh}`;
     result += `,\\\\ \\log_{10}(\\log_{10}(\\max{h(\\phi)}))/5=${(maxh + BigNumber.from(10.0001)).log10().log10() * tauExpMult}`
     result += `,\\rho^{\\log_{10}(\\log_{10}(\\max{h(\\phi)}))/5}=${getTau()}`;
 
