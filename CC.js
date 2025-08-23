@@ -44,15 +44,21 @@ var authors =
 'XLII (contributor to the original version)';
 var version = 0.11;
 
-// Constants
+/*
+    Constants
+*/
 
 const ZERO = BigNumber.ZERO;
 
-// Utils
+/*
+    Utils
+*/
 
 let bigNumArray = (array) => array.map(x => BigNumber.from(x));
 
-// Variables
+/*
+    Variables
+*/
 let c = 1n;
 let cBigNum = BigNumber.from(c);
 let c0 = 1n;
@@ -60,19 +66,14 @@ let c0BigNum = BigNumber.from(c0);
 let ctimer = 0;
 let t = 0;
 
-// Balance
+/*
+    Main balance parameters
+*/
 const tauRate = 0.04;
-const pubExp = 3.01;
+const pubExp = 25 * 0.2;
 var getPublicationMultiplier = (tau) => tau.pow(pubExp);
 var getPublicationMultiplierFormula = (symbol) =>
 `{${symbol}}^{${pubExp}}`;
-
-// Upgrades
-const q1Cost = new FirstFreeCost(new ExponentialCost(1000, 1.5));
-const getq1 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0);
-
-const q2Cost = new ExponentialCost(2.2e7, 6);
-const getq2 = (level) => BigNumber.TWO.pow(level);
 
 var getTau = () => currency.value.pow(tauRate);
 
@@ -82,26 +83,41 @@ var getCurrencyFromTau = (tau) =>
     currency.symbol
 ];
 
-// Milestones
+/*
+    Upgrades
+*/
+const q1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.22)));
+const getq1 = (level) => Utils.getStepwisePowerSum(level, 2, 8, 0);
+
+const q2Cost = new ExponentialCost(1e4, Math.log2(8));
+const getq2 = (level) => BigNumber.TWO.pow(level);
+
+/*
+    Perma upgrades
+*/
+const permaCosts = bigNumArray(['1e8', '1e20', '1e24']);
+
+/*
+    Milestones
+*/
 var cooldownMs;
+
+const milestoneCosts = [
+    15, 20, 25, 30, 50, 70, 90, 110, // stage 1
+    130
+].map((rho) => BigNumber.from(rho * tauRate));
 
 const milestoneCost = new CustomCost((level) =>
 {
-    if(level == 0) return BigNumber.from(30 * tauRate);
-    if(level == 1) return BigNumber.from(45 * tauRate);
-    if(level == 2) return BigNumber.from(75 * tauRate);
-    if(level == 3) return BigNumber.from(105 * tauRate);
-    if(level == 4) return BigNumber.from(150 * tauRate);
-    if(level == 5) return BigNumber.from(210 * tauRate);
-    if(level == 6) return BigNumber.from(270 * tauRate);
-    if(level == 7) return BigNumber.from(330 * tauRate);
-    if(level == 8) return BigNumber.from(390 * tauRate);
-    if(level == 9) return BigNumber.from(450 * tauRate);
+    if (level < milestoneCosts.length) return milestoneCosts[level];
     return BigNumber.from(-1);
 });
 
 const cooldown = [40, 20, 10, 5];
-const permaCosts = bigNumArray(['1e12', '1e20', '1e24']);
+
+/*
+    Main functions
+*/
 
 var init = () => {
     currency = theory.createCurrency();
@@ -143,11 +159,11 @@ var init = () => {
         Milestones
     */
 
+    theory.setMilestoneCost(milestoneCost);
+
     /* Interval speed-up
     */
     {
-        let getInfo = (level, amount = 1) => `c update interval =
-            ${cooldown[level] || cooldown[level - amount]}`;
         cooldownMs = theory.createMilestoneUpgrade(0, cooldown.length - 1);
         cooldownMs.getDescription = (amount) =>
         {
@@ -167,6 +183,12 @@ var init = () => {
         };
         cooldownMs.canBeRefunded = (amount) => true;
     }
+
+    /* Finish cycle if c < c0
+    */
+   {
+
+   }
 }
 
 
@@ -221,6 +243,7 @@ var postPublish = () => {
     t = 0;
     ctimer = 0;
     c = c0;
+    cBigNum = BigNumber.from(c);
 }
 
 var getInternalState = () => JSON.stringify
