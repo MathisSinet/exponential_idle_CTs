@@ -1,5 +1,5 @@
 import { BigNumber } from '../api/BigNumber';
-import { CompositeCost, ExponentialCost, FirstFreeCost, FreeCost, LinearCost } from '../api/Costs';
+import { CompositeCost, ExponentialCost, FirstFreeCost, FreeCost, LinearCost, CustomCost } from '../api/Costs';
 import { Localization } from '../api/Localization';
 import { Theme } from '../api/Settings';
 import { theory } from '../api/Theory';
@@ -322,6 +322,7 @@ var setInternalState = (stateStr) =>
 
 
     theory.invalidatePrimaryEquation();
+    theory.invalidateSecondaryEquation();
     theory.invalidateTertiaryEquation();
 }
 
@@ -377,7 +378,7 @@ var getSecondaryEquation = () => {
     theory.secondaryEquationScale = 1.2;
 
     cStr = `c=${cBigNum.toString(0)}`;
-    c0Str = `c0=${c0BigNum.toString(0)}`;
+    c0Str = `c_0=${c0BigNum.toString(0)}`;
 
     let result = "\\begin{matrix}";
     result += `\\dot{\\rho} = t{q_1}{q_2}{c_0}\\\\`;
