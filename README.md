@@ -14,7 +14,7 @@ Custom Theory about Riemann-Stieljes integration, developed with [Snaeky](https:
 
 ## Collatz Conjecture
 
-Custom Theory about the Collatz Conjecture, reboot of the original version by [prop](https://github.com/propfeds),
+Custom Theory about the Collatz Conjecture, reboot of the original version from [prop](https://github.com/propfeds),
 developed with d4Nf6Bg51-0. WIP
 
 Check out [the original version](https://github.com/propfeds/collatz-conjecture).
