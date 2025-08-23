@@ -100,11 +100,11 @@ const permaCosts = bigNumArray(['1e8', '1e20', '1e24']);
 /*
     Milestones
 */
-var cooldownMs;
+var cooldownMs, terminateEarlyMs, c0SkipMs;
 
 const milestoneCosts = [
-    15, 20, 25, 30, 50, 70, 90, 110, // stage 1
-    130
+    20, 30, 40, 50, 75, 100, 125, 150, // stage 1
+    300
 ].map((rho) => BigNumber.from(rho * tauRate));
 
 const milestoneCost = new CustomCost((level) =>
@@ -167,9 +167,9 @@ var init = () => {
         cooldownMs = theory.createMilestoneUpgrade(0, cooldown.length - 1);
         cooldownMs.getDescription = (amount) =>
         {
-            return Localization.getUpgradeDecCustomDesc("\\text{c update interval}", 
+            return `${Localization.getUpgradeDecCustomDesc("\\text{c update interval}", 
                 cooldown[cooldownMs.level] - cooldown[cooldownMs.level + amount] ||
-            0)
+            0)} ticks`
         };
         cooldownMs.getInfo = (amount) =>
         {
@@ -186,9 +186,24 @@ var init = () => {
 
     /* Finish cycle if c < c0
     */
-   {
+    {
+        terminateEarlyMs = theory.createMilestoneUpgrade(1, 1);
+        terminateEarlyMs.getDescription = () => "Reset $c$ if $c$ < $c_0$";
+        terminateEarlyMs.getInfo = () => "Set $c$ to $c_0$ and increase $c_0$ if $c$ falls below $c_0$";
+        terminateEarlyMs.boughtOrRefunded = (_) => updateAvailability();
+        terminateEarlyMs.canBeRefunded = () => true;
+    }
 
-   }
+    /* Skips some values of c0
+    */
+    {
+        c0SkipMs = theory.createMilestoneUpgrade(2, 2);
+        c0SkipMs.getDescription = () => c0SkipMs.level == 0
+            ? "$c_0$ skips even numbers"
+            : "$c_0$ only lands on numbers $\\equiv 3\\text{ (mod 4)}$";
+        c0SkipMs.boughtOrRefunded = (_) => updateAvailability();
+        c0SkipMs.canBeRefunded = () => true;
+    }
 }
 
 var updateAvailability = () => {
@@ -207,8 +222,15 @@ var tick = (elapsedTime, multiplier) => {
         ctimer -= cooldown[cooldownMs.level];
         cIterProgBar.progressTo(0, 33, Easing.LINEAR);
 
-        if (c == 1n) {
-            c0 += 1n;
+        if (c == 1n || (terminateEarlyMs.level == 1 && c < c0)) {
+            switch (c0SkipMs.level) {
+                case 1:
+                    c0 += 1n + (c0 % 2n); break;
+                case 2:
+                    c0 += (c0 % 4n) == 3n ? 4n : 3n - (c0 % 4n); break;
+                default:
+                    c0 += 1n; break;
+            }
             c = c0;
             cBigNum = BigNumber.from(c);
             c0BigNum = BigNumber.from(c0);
