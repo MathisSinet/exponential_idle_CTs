@@ -103,8 +103,10 @@ const permaCosts = bigNumArray(['1e8', '1e20', '1e24']);
 var cooldownMs, terminateEarlyMs, c0SkipMs;
 
 const milestoneCosts = [
-    20, 30, 40, 50, 75, 100, 125, 150, // stage 1
-    300
+    125, 150, 175, // cooldown ms
+    225, // c < c0 ms
+    250, 275, // c0 skip ms
+    300 // stage 2 start
 ].map((rho) => BigNumber.from(rho * tauRate));
 
 const milestoneCost = new CustomCost((level) =>
@@ -181,7 +183,7 @@ var init = () => {
         {
             updateAvailability();
         };
-        cooldownMs.canBeRefunded = (amount) => true;
+        cooldownMs.canBeRefunded = (amount) => terminateEarlyMs.level == 0;
     }
 
     /* Finish cycle if c < c0
@@ -190,8 +192,11 @@ var init = () => {
         terminateEarlyMs = theory.createMilestoneUpgrade(1, 1);
         terminateEarlyMs.getDescription = () => "Reset $c$ if $c$ < $c_0$";
         terminateEarlyMs.getInfo = () => "Set $c$ to $c_0$ and increase $c_0$ if $c$ falls below $c_0$";
-        terminateEarlyMs.boughtOrRefunded = (_) => updateAvailability();
-        terminateEarlyMs.canBeRefunded = () => true;
+        terminateEarlyMs.boughtOrRefunded = (_) => {
+            theory.invalidatePrimaryEquation();
+            updateAvailability();
+        }
+        terminateEarlyMs.canBeRefunded = () => c0SkipMs.level == 0;
     }
 
     /* Skips some values of c0
@@ -201,13 +206,17 @@ var init = () => {
         c0SkipMs.getDescription = () => c0SkipMs.level == 0
             ? "$c_0$ skips even numbers"
             : "$c_0$ only lands on numbers $\\equiv 3\\text{ (mod 4)}$";
-        c0SkipMs.boughtOrRefunded = (_) => updateAvailability();
+        c0SkipMs.boughtOrRefunded = (_) => {
+            theory.invalidatePrimaryEquation();
+            updateAvailability();
+        }
         c0SkipMs.canBeRefunded = () => true;
     }
 }
 
 var updateAvailability = () => {
-
+    terminateEarlyMs.isAvailable = cooldownMs.level == cooldown.length - 1;
+    c0SkipMs.isAvailable = terminateEarlyMs.level == 1;
 }
 
 
@@ -245,8 +254,8 @@ var tick = (elapsedTime, multiplier) => {
             t++;
         }
 
-        //theory.invalidatePrimaryEquation();
         theory.invalidateSecondaryEquation();
+        theory.invalidateTertiaryEquation();
     }
     if(!turned)
         cIterProgBar.progressTo(Math.min(1,
@@ -262,8 +271,6 @@ var tick = (elapsedTime, multiplier) => {
     const rhodot = bonus * vq1 * vq2 * t * c0BigNum;
 
     currency.value += rhodot * dt;
-
-    theory.invalidateTertiaryEquation();
 }
 
 var postPublish = () => {
@@ -347,11 +354,15 @@ var getEquationOverlay = () =>
 var getPrimaryEquation = () => {
     theory.primaryEquationHeight = 100;
 
+    const c0IncSteps = [1, 2, 4]
+
     let result = `\\begin{matrix}c\\leftarrow\\begin{cases}`
     + `c/2&\\text{{if }}{{c\\equiv0\\text{ (mod 2)}}}\\\\`
     + `3c+1&\\text{{if }}{{c\\equiv1\\text{ (mod 2)}}}`
     + `\\end{cases}\\\\`
-    + `c = 1 \\Rightarrow {c_0} \\leftarrow {c_0} + 1; c \\leftarrow c_0`
+    + (terminateEarlyMs.level == 0 
+        ? `c = 1 \\Rightarrow {c_0} \\leftarrow {c_0} + ${c0IncSteps[c0SkipMs.level]}; c \\leftarrow c_0`
+        : `c < {c_0} \\Rightarrow {c_0} \\leftarrow {c_0} + ${c0IncSteps[c0SkipMs.level]}; c \\leftarrow c_0`)
     + `\\end{matrix}`;
 
     return result;
