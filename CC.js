@@ -95,7 +95,11 @@ const getq2 = (level) => BigNumber.TWO.pow(level);
 /*
     Perma upgrades
 */
-const permaCosts = bigNumArray(['1e8', '1e20', '1e24']);
+const permaCosts = bigNumArray([
+    '1e15', // pub unlock
+    '1e75', // buy all button
+    '1e100' // autobuyer
+]);
 
 /*
     Milestones
@@ -376,7 +380,7 @@ var getSecondaryEquation = () => {
     c0Str = `c0=${c0BigNum.toString(0)}`;
 
     let result = "\\begin{matrix}";
-    result += `\\dot{\\rho} = {q_1}{q_2}{t}{c_0}\\\\`;
+    result += `\\dot{\\rho} = t{q_1}{q_2}{c_0}\\\\`;
     result += `${cStr}\\\\${c0Str}`;
     result += `\\end{matrix}`;
 
