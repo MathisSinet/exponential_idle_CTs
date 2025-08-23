@@ -191,6 +191,10 @@ var init = () => {
    }
 }
 
+var updateAvailability = () => {
+    
+}
+
 
 var tick = (elapsedTime, multiplier) => {
     if (!q1.level) return;
