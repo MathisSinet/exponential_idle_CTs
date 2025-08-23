@@ -167,13 +167,13 @@ var init = () => {
         cooldownMs = theory.createMilestoneUpgrade(0, cooldown.length - 1);
         cooldownMs.getDescription = (amount) =>
         {
-            return Localization.getUpgradeDecCustomDesc("c update interval", 
+            return Localization.getUpgradeDecCustomDesc("\\text{c update interval}", 
                 cooldown[cooldownMs.level] - cooldown[cooldownMs.level + amount] ||
             0)
         };
         cooldownMs.getInfo = (amount) =>
         {
-            return Localization.getUpgradeDecCustomInfo("the interval between c updates", 
+            return Localization.getUpgradeDecCustomInfo("\\text{the interval between c updates}", 
                 cooldown[cooldownMs.level] - cooldown[cooldownMs.level + amount] ||
             0)
         }
@@ -192,7 +192,7 @@ var init = () => {
 }
 
 var updateAvailability = () => {
-    
+
 }
 
 
@@ -232,11 +232,12 @@ var tick = (elapsedTime, multiplier) => {
         Easing.LINEAR);
 
     const dt = BigNumber.from(elapsedTime * multiplier);
+    const bonus = theory.publicationMultiplier;
 
     const vq1 = getq1(q1.level);
     const vq2 = getq2(q2.level);
 
-    const rhodot = vq1 * vq2 * t * c0BigNum;
+    const rhodot = bonus * vq1 * vq2 * t * c0BigNum;
 
     currency.value += rhodot * dt;
 
@@ -265,6 +266,10 @@ var setInternalState = (stateStr) =>
 
     let state = JSON.parse(stateStr);
 
+    if ('t' in state)
+    {
+        t = state.t;
+    }
     if('ctimer' in state)
     {
         ctimer = state.ctimer;
