@@ -14,6 +14,7 @@ import { Thickness } from '../api/ui/properties/Thickness';
 import { Easing } from '../api/ui/properties/Easing';
 import { ScrollOrientation } from '../api/ui/properties/ScrollOrientation';
 import { TextAlignment } from '../api/ui/properties/TextAlignment';
+import { log } from 'winjs';
 
 var id = 'collatz_conjecture_new';
 var getName = (language) =>
@@ -49,6 +50,7 @@ var version = 0.11;
 */
 
 const ZERO = BigNumber.ZERO;
+const ONE = BigNumber.ONE;
 
 /*
     Utils
@@ -59,12 +61,28 @@ let bigNumArray = (array) => array.map(x => BigNumber.from(x));
 /*
     Variables
 */
+
+var stage = 1;
+
+let t = 0;
+let ctimer = 0;
+
 let c = 1n;
 let cBigNum = BigNumber.from(c);
 let c0 = 1n;
 let c0BigNum = BigNumber.from(c0);
-let ctimer = 0;
-let t = 0;
+
+let c1 = 1n;
+let c1BigNum = BigNumber.from(c1);
+let c1cycle = false;
+
+let T = ONE;
+let S = ONE;
+let M = ONE;
+
+let T1 = 0;
+let S1 = ONE;
+let M1 = ONE;
 
 /*
     Main balance parameters
@@ -86,11 +104,17 @@ var getCurrencyFromTau = (tau) =>
 /*
     Upgrades
 */
+var q1, q2, c1upg;
+
 const q1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.22)));
 const getq1 = (level) => Utils.getStepwisePowerSum(level, 2, 8, 0);
 
 const q2Cost = new ExponentialCost(1e4, Math.log2(8));
 const getq2 = (level) => BigNumber.TWO.pow(level);
+
+const c1Cost = new ExponentialCost(BigNumber.from("1e300"), 30*Math.log2(10));
+const getc1 = (level) => BigNumber.TWO.pow(level+1) - ONE;
+const getc1bigint = (level) => (1n << BigInt(level+1)) - 1n;
 
 /*
     Perma upgrades
@@ -104,13 +128,13 @@ const permaCosts = bigNumArray([
 /*
     Milestones
 */
-var cooldownMs, terminateEarlyMs, c0SkipMs;
+var cooldownMs, terminateEarlyMs, c0SkipMs, c1Ms;
 
 const milestoneCosts = [
     125, 150, 175, // cooldown ms
     225, // c < c0 ms
     250, 275, // c0 skip ms
-    300 // stage 2 start
+    300 // stage 2 start, c1 ms
 ].map((rho) => BigNumber.from(rho * tauRate));
 
 const milestoneCost = new CustomCost((level) =>
@@ -151,6 +175,26 @@ var init = () => {
         q2 = theory.createUpgrade(2, currency, q2Cost);
         q2.getDescription = (_) => Utils.getMath(getDesc(q2.level));
         q2.getInfo = (amount) => Utils.getMathTo(getInfo(q2.level), getInfo(q2.level + amount));
+    }
+
+    /* c1
+    */
+    {
+        let getDesc = (level) => `c_1=2^{${level+1}} - 1`;
+        let getInfo = (level) => `c_1=${getc1(level).toString(0)}`;
+        c1upg = theory.createUpgrade(3, currency, c1Cost);
+        c1upg.getDescription = (_) => Utils.getMath(getDesc(c1upg.level));
+        c1upg.getInfo = (amount) => Utils.getMathTo(getInfo(c1upg.level), getInfo(c1upg.level + amount));
+        c1upg.boughtOrRefunded = (_) => {
+            theory.invalidateSecondaryEquation();
+            c1 = getc1bigint(c1upg.level);
+            c1BigNum = BigNumber.from(c1);
+            c1cycle = false;
+            T1 = 0;
+            S1 = c1BigNum;
+            M1 = c1BigNum;
+        }
+        c1upg.level = 1;
     }
 
     /*
@@ -214,13 +258,31 @@ var init = () => {
             theory.invalidatePrimaryEquation();
             updateAvailability();
         }
-        c0SkipMs.canBeRefunded = () => true;
+        c0SkipMs.canBeRefunded = () => c1Ms.level == 0;
     }
+
+    /* Unlocks c1
+    */
+    {
+        c1Ms = theory.createMilestoneUpgrade(11, 1);
+        c1Ms.getDescription = () => Localization.getUpgradeUnlockDesc("c_1");
+        c1Ms.getInfo = () => Localization.getUpgradeUnlockInfo("c_1");
+        c1Ms.boughtOrRefunded = (_) => {
+            theory.invalidateTertiaryEquation();
+            updateAvailability();
+        }
+        c1Ms.refunded = (_) => stage = 1;
+    }
+
+    updateAvailability();
 }
 
 var updateAvailability = () => {
     terminateEarlyMs.isAvailable = cooldownMs.level == cooldown.length - 1;
     c0SkipMs.isAvailable = terminateEarlyMs.level == 1;
+    c1Ms.isAvailable = c0SkipMs.level == 2;
+
+    c1upg.isAvailable = c1Ms.level == 1;
 }
 
 
@@ -231,9 +293,26 @@ var tick = (elapsedTime, multiplier) => {
     let turned = false;
     while(ctimer + 1e-8 >= cooldown[cooldownMs.level])
     {
+        t++;
         turned = true;
         ctimer -= cooldown[cooldownMs.level];
         cIterProgBar.progressTo(0, 33, Easing.LINEAR);
+
+        if (c1 == 1n) {
+            c1cycle = true;
+            c1 = getc1bigint(c1upg.level);
+            c1BigNum = BigNumber.from(c1);
+        }
+        else {
+            if(c1 % 2n != 0)
+                c1 = 3n * c1 + 1n;
+            else
+                c1 /= 2n;
+            c1BigNum = BigNumber.from(c1);
+            if (!c1cycle) T1++;
+            S1 += c1BigNum;
+            M1 = M1.max(c1BigNum);
+        }
 
         if (c == 1n || (terminateEarlyMs.level == 1 && c < c0)) {
             switch (c0SkipMs.level) {
@@ -247,7 +326,6 @@ var tick = (elapsedTime, multiplier) => {
             c = c0;
             cBigNum = BigNumber.from(c);
             c0BigNum = BigNumber.from(c0);
-            t++;
         }
         else {
             if(c % 2n != 0)
@@ -255,11 +333,9 @@ var tick = (elapsedTime, multiplier) => {
             else
                 c /= 2n;
             cBigNum = BigNumber.from(c);
-            t++;
         }
 
         theory.invalidateSecondaryEquation();
-        theory.invalidateTertiaryEquation();
     }
     if(!turned)
         cIterProgBar.progressTo(Math.min(1,
@@ -272,9 +348,15 @@ var tick = (elapsedTime, multiplier) => {
     const vq1 = getq1(q1.level);
     const vq2 = getq2(q2.level);
 
-    const rhodot = bonus * vq1 * vq2 * t * c0BigNum;
+    T += T1 * dt;
+    S += S1 * dt;
+    M += M1 * dt;
+
+    const rhodot = bonus * vq1 * vq2 * t * T * S * M * c0BigNum;
 
     currency.value += rhodot * dt;
+    
+    theory.invalidateTertiaryEquation();
 }
 
 var postPublish = () => {
@@ -282,6 +364,19 @@ var postPublish = () => {
     ctimer = 0;
     c = c0;
     cBigNum = BigNumber.from(c);
+
+    c1 = 1n;
+    c1BigNum = BigNumber.from(c1);
+    c1cycle = false;
+    T = ONE;
+    S = ONE;
+    M = ONE;
+    T1 = 0;
+    S1 = ONE;
+    M1 = ONE;
+
+    theory.invalidateSecondaryEquation();
+    theory.invalidateTertiaryEquation();
 }
 
 var getInternalState = () => JSON.stringify
@@ -290,6 +385,17 @@ var getInternalState = () => JSON.stringify
     c: c.toString(),
     c0: c0.toString(),
     ctimer,
+
+    c1: c1.toString(),
+    c1cycle,
+
+    T: T.toBase64String(),
+    S: S.toBase64String(),
+    M: M.toBase64String(),
+
+    T1,
+    S1: S1.toBase64String(),
+    M1: M1.toBase64String()
 })
 
 var setInternalState = (stateStr) =>
@@ -319,6 +425,41 @@ var setInternalState = (stateStr) =>
         c0 = BigInt(state.c0);
         c0BigNum = BigNumber.from(c0);
     }
+    if ('c1' in state)
+    {
+        c1 = BigInt(state.c1);
+        c1BigNum = BigNumber.from(c1);
+    }
+    if ('c1cycle' in state)
+    {
+        c1cycle = state.c1cycle;
+    }
+
+    if ('T' in state)
+    {
+        T = BigNumber.fromBase64String(state.T);
+    }
+    if ('S' in state)
+    {
+        S = BigNumber.fromBase64String(state.S);
+    }
+    if ('M' in state)
+    {
+        M = BigNumber.fromBase64String(state.M);
+    }
+
+    if ('T1' in state)
+    {
+        T1 = state.T1;
+    }
+    if ('S1' in state)
+    {
+        S1 = BigNumber.fromBase64String(state.S1);
+    }
+    if ('M1' in state)
+    {
+        M1 = BigNumber.fromBase64String(state.M1);
+    }
 
 
     theory.invalidatePrimaryEquation();
@@ -339,6 +480,8 @@ var getEquationOverlay = () =>
 {
     let result = ui.createGrid
     ({
+        inputTransparent: true,
+        cascadeInputTransparent: true,
         columnDefinitions: ['1*', '2*', '1*'],
         children:
         [
@@ -359,37 +502,96 @@ var getEquationOverlay = () =>
 var getPrimaryEquation = () => {
     theory.primaryEquationHeight = 100;
 
-    const c0IncSteps = [1, 2, 4]
+    let result = ``;
 
-    let result = `\\begin{matrix}c\\leftarrow\\begin{cases}`
-    + `c/2&\\text{{if }}{{c\\equiv0\\text{ (mod 2)}}}\\\\`
-    + `3c+1&\\text{{if }}{{c\\equiv1\\text{ (mod 2)}}}`
-    + `\\end{cases}\\\\`
-    + (terminateEarlyMs.level == 0 
-        ? `c = 1 \\Rightarrow {c_0} \\leftarrow {c_0} + ${c0IncSteps[c0SkipMs.level]}; c \\leftarrow c_0`
-        : `c < {c_0} \\Rightarrow {c_0} \\leftarrow {c_0} + ${c0IncSteps[c0SkipMs.level]}; c \\leftarrow c_0`)
-    + `\\end{matrix}`;
+    if (stage == 1) {
+        const c0IncSteps = [1, 2, 4]
+
+        result = `\\begin{matrix}f(n)=\\begin{cases}`
+        + `n/2&\\text{{if }}{{n\\equiv0\\text{ (mod 2)}}}\\\\`
+        + `3n+1&\\text{{if }}{{n\\equiv1\\text{ (mod 2)}}}`
+        + `\\end{cases}\\\\`
+        + `c \\leftarrow f(c)\\\\`
+        + (terminateEarlyMs.level == 0 
+            ? `c = 1 \\Rightarrow {c_0} \\leftarrow {c_0} + ${c0IncSteps[c0SkipMs.level]}; c \\leftarrow c_0`
+            : `c < {c_0} \\Rightarrow {c_0} \\leftarrow {c_0} + ${c0IncSteps[c0SkipMs.level]}; c \\leftarrow c_0`)
+        + `\\end{matrix}`;
+    }
+    else {
+        result = `\\begin{matrix}`;
+        result += `\\dot{T} = T(c_1)\\\\`;
+        result += `\\dot{S} = S(c_1)\\\\`;
+        result += `\\dot{M} = M(c_1)\\\\`;
+        result += `c_1 \\leftarrow f(c_1)\\\\`;
+        result += `\\end{matrix}`;
+    }
+    
 
     return result;
 }
 
 var getSecondaryEquation = () => {
     theory.secondaryEquationHeight = 80;
-    theory.secondaryEquationScale = 1.2;
 
-    cStr = `c=${cBigNum.toString(0)}`;
-    c0Str = `c_0=${c0BigNum.toString(0)}`;
+    let result = ``;
 
-    let result = "\\begin{matrix}";
-    result += `\\dot{\\rho} = t{q_1}{q_2}{c_0}\\\\`;
-    result += `${cStr}\\\\${c0Str}`;
-    result += `\\end{matrix}`;
+    if (stage == 1) {
+        theory.secondaryEquationScale = 1.2;
+        const cStr = `c=${cBigNum.toString(0)}`;
+        const c0Str = `c_0=${c0BigNum.toString(0)}`;
+
+        result = "\\begin{matrix}";
+        result += `\\dot{\\rho} = t{q_1}{q_2}{c_0}\\\\`;
+        result += `${cStr}\\\\${c0Str}`;
+        result += `\\end{matrix}`;
+    }
+    else {
+        theory.secondaryEquationScale = 1;
+        result = "\\begin{matrix}";
+        result += `c_1=${c1BigNum.toString(0)}& T(c_1)=${T1}& S(c_1)=${S1.toString(0)}& M(c_1)=${M1.toString(0)}`;
+        result += `\\end{matrix}`;
+    }
+    
 
     return result;
 }
 
 var getTertiaryEquation = () => {
-    return `${theory.latexSymbol} = \\max \\rho^{${tauRate}} \\quad t = ${t}`;
+    let result = ``;
+
+    const bottomString = `${theory.latexSymbol} = \\max \\rho^{${tauRate}} \\quad t = ${t}`;
+
+    if (c1Ms.level == 0) {
+        result = bottomString;
+    }
+    else {
+        result += `\\begin{matrix}`;
+        result += `T = ${T} \\quad S = ${S} \\quad M = ${M}`;
+        result += "\\\\";
+        result += bottomString;
+        result += `\\end{matrix}`;
+    }
+
+    return result;
 }
+
+var canGoToPreviousStage = () => (stage === 1 && c1Ms.level == 1);
+var goToPreviousStage = () => {
+  stage--;
+  theory.invalidatePrimaryEquation();
+  theory.invalidateSecondaryEquation();
+  theory.invalidateTertiaryEquation();
+  //quaternaryEntries = [];
+  //theory.invalidateQuaternaryValues();
+};
+var canGoToNextStage = () => stage === 0;
+var goToNextStage = () => {
+  stage++;
+  theory.invalidatePrimaryEquation();
+  theory.invalidateSecondaryEquation();
+  theory.invalidateTertiaryEquation();
+  //quaternaryEntries = [];
+  //theory.invalidateQuaternaryValues();
+};
 
 init();
