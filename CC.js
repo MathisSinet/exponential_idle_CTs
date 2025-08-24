@@ -128,13 +128,15 @@ const permaCosts = bigNumArray([
 /*
     Milestones
 */
-var cooldownMs, terminateEarlyMs, c0SkipMs, c1Ms;
+var cooldownMs, terminateEarlyMs, c0SkipMs, c1Ms, smUnlockMs;
 
 const milestoneCosts = [
     125, 150, 175, // cooldown ms
     225, // c < c0 ms
     250, 275, // c0 skip ms
-    300 // stage 2 start, c1 ms
+    300, // stage 2 start, c1 ms
+    350, // S unlock
+    400, // M unlock
 ].map((rho) => BigNumber.from(rho * tauRate));
 
 const milestoneCost = new CustomCost((level) =>
@@ -268,10 +270,27 @@ var init = () => {
         c1Ms.getDescription = () => Localization.getUpgradeUnlockDesc("c_1");
         c1Ms.getInfo = () => Localization.getUpgradeUnlockInfo("c_1");
         c1Ms.boughtOrRefunded = (_) => {
+            theory.invalidatePrimaryEquation();
+            theory.invalidateSecondaryEquation();
             theory.invalidateTertiaryEquation();
             updateAvailability();
         }
         c1Ms.refunded = (_) => stage = 1;
+        c1Ms.canBeRefunded = () => smUnlockMs.level == 0;
+    }
+
+    /* Unlocks S then M
+    */
+    {
+        smUnlockMs = theory.createMilestoneUpgrade(12, 2);
+        smUnlockMs.getDescription = () => Localization.getUpgradeUnlockDesc(smUnlockMs.level == 0 ? "S" : "M");
+        smUnlockMs.getInfo = () => Localization.getUpgradeUnlockInfo(smUnlockMs.level == 0 ? "S" : "M");
+        smUnlockMs.boughtOrRefunded = (_) => {
+            theory.invalidatePrimaryEquation();
+            theory.invalidateSecondaryEquation();
+            theory.invalidateTertiaryEquation();
+            updateAvailability();
+        }
     }
 
     updateAvailability();
@@ -281,6 +300,7 @@ var updateAvailability = () => {
     terminateEarlyMs.isAvailable = cooldownMs.level == cooldown.length - 1;
     c0SkipMs.isAvailable = terminateEarlyMs.level == 1;
     c1Ms.isAvailable = c0SkipMs.level == 2;
+    smUnlockMs.isAvailable = c1Ms.level > 0;
 
     c1upg.isAvailable = c1Ms.level == 1;
 }
@@ -298,21 +318,24 @@ var tick = (elapsedTime, multiplier) => {
         ctimer -= cooldown[cooldownMs.level];
         cIterProgBar.progressTo(0, 33, Easing.LINEAR);
 
-        if (c1 == 1n) {
-            c1cycle = true;
-            c1 = getc1bigint(c1upg.level);
-            c1BigNum = BigNumber.from(c1);
+        if (c1Ms.level > 0) {
+            if (c1 == 1n) {
+                c1cycle = true;
+                c1 = getc1bigint(c1upg.level);
+                c1BigNum = BigNumber.from(c1);
+            }
+            else {
+                if(c1 % 2n != 0)
+                    c1 = 3n * c1 + 1n;
+                else
+                    c1 /= 2n;
+                c1BigNum = BigNumber.from(c1);
+                if (!c1cycle) T1++;
+                if (smUnlockMs.level > 0) S1 += c1BigNum;
+                if (smUnlockMs.level > 1) M1 = M1.max(c1BigNum);
+            }
         }
-        else {
-            if(c1 % 2n != 0)
-                c1 = 3n * c1 + 1n;
-            else
-                c1 /= 2n;
-            c1BigNum = BigNumber.from(c1);
-            if (!c1cycle) T1++;
-            S1 += c1BigNum;
-            M1 = M1.max(c1BigNum);
-        }
+        
 
         if (c == 1n || (terminateEarlyMs.level == 1 && c < c0)) {
             switch (c0SkipMs.level) {
@@ -354,7 +377,10 @@ var tick = (elapsedTime, multiplier) => {
         M += M1 * dt;
     }
 
-    const tsmTerm = c1Ms.level > 0 ? T * S * M : ONE;
+    let tsmTerm = ONE;
+    if (c1Ms.level > 0) tsmTerm *= T;
+    if (smUnlockMs.level > 0) tsmTerm *= S;
+    if (smUnlockMs.level > 1) tsmTerm *= M;
 
     const rhodot = bonus * vq1 * vq2 * t * tsmTerm * c0BigNum;
 
@@ -527,8 +553,8 @@ var getPrimaryEquation = () => {
         theory.primaryEquationScale = 0.95;
         result = `\\begin{matrix}`;
         result += `\\dot{T} = T(c_1)\\\\`;
-        result += `\\dot{S} = S(c_1)\\\\`;
-        result += `\\dot{M} = M(c_1)\\\\`;
+        if (smUnlockMs.level > 0) result += `\\dot{S} = S(c_1)\\\\`;
+        if (smUnlockMs.level > 1) result += `\\dot{M} = M(c_1)\\\\`;
         result += `c_1 \\leftarrow f(c_1)\\\\`;
         result += `\\end{matrix}`;
     }
@@ -546,7 +572,10 @@ var getSecondaryEquation = () => {
         theory.secondaryEquationScale = 1.2;
         const cStr = `c=${cBigNum.toString(0)}`;
         const c0Str = `c_0=${c0BigNum.toString(0)}`;
-        const tsmTerm = c1Ms.level > 0 ? `TSM` : ``;
+        let tsmTerm = ``;
+        if (c1Ms.level > 0) tsmTerm += `T`;
+        if (smUnlockMs.level > 0) tsmTerm += `S`;
+        if (smUnlockMs.level > 1) tsmTerm += `M`;
 
         result = "\\begin{matrix}";
         result += `\\dot{\\rho} = t{q_1}{q_2}${tsmTerm}{c_0}\\\\`;
@@ -556,7 +585,9 @@ var getSecondaryEquation = () => {
     else {
         theory.secondaryEquationScale = 1;
         result = "\\begin{matrix}";
-        result += `c_1=${c1BigNum.toString(0)}& T(c_1)=${T1}& S(c_1)=${S1.toString(0)}& M(c_1)=${M1.toString(0)}`;
+        result += `c_1=${c1BigNum.toString(0)} & T(c_1)=${T1}`;
+        if (smUnlockMs.level > 0) result += `& S(c_1)=${S1.toString(0)}`;
+        if (smUnlockMs.level > 1) result += `& M(c_1)=${M1.toString(0)}`;
         result += `\\end{matrix}`;
     }
     
@@ -574,7 +605,9 @@ var getTertiaryEquation = () => {
     }
     else {
         result += `\\begin{matrix}`;
-        result += `T = ${T} \\quad S = ${S} \\quad M = ${M}`;
+        result += `T = ${T}`;
+        if (smUnlockMs.level > 0) result += `\\quad S = ${S}`;
+        if (smUnlockMs.level > 1) result += `\\quad M = ${M}`;
         result += "\\\\";
         result += bottomString;
         result += `\\end{matrix}`;
@@ -589,8 +622,6 @@ var goToPreviousStage = () => {
   theory.invalidatePrimaryEquation();
   theory.invalidateSecondaryEquation();
   theory.invalidateTertiaryEquation();
-  //quaternaryEntries = [];
-  //theory.invalidateQuaternaryValues();
 };
 var canGoToNextStage = () => stage === 0;
 var goToNextStage = () => {
@@ -598,8 +629,6 @@ var goToNextStage = () => {
   theory.invalidatePrimaryEquation();
   theory.invalidateSecondaryEquation();
   theory.invalidateTertiaryEquation();
-  //quaternaryEntries = [];
-  //theory.invalidateQuaternaryValues();
 };
 
 init();
