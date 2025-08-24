@@ -348,11 +348,15 @@ var tick = (elapsedTime, multiplier) => {
     const vq1 = getq1(q1.level);
     const vq2 = getq2(q2.level);
 
-    T += T1 * dt;
-    S += S1 * dt;
-    M += M1 * dt;
+    if (c1Ms.level > 0) {
+        T += T1 * dt;
+        S += S1 * dt;
+        M += M1 * dt;
+    }
 
-    const rhodot = bonus * vq1 * vq2 * t * T * S * M * c0BigNum;
+    const tsmTerm = c1Ms.level > 0 ? T * S * M : ONE;
+
+    const rhodot = bonus * vq1 * vq2 * t * tsmTerm * c0BigNum;
 
     currency.value += rhodot * dt;
     
@@ -500,11 +504,12 @@ var getEquationOverlay = () =>
 }
 
 var getPrimaryEquation = () => {
-    theory.primaryEquationHeight = 100;
 
     let result = ``;
 
     if (stage == 1) {
+        theory.primaryEquationHeight = 110;
+        theory.primaryEquationScale = 1;
         const c0IncSteps = [1, 2, 4]
 
         result = `\\begin{matrix}f(n)=\\begin{cases}`
@@ -518,6 +523,8 @@ var getPrimaryEquation = () => {
         + `\\end{matrix}`;
     }
     else {
+        theory.primaryEquationHeight = 125;
+        theory.primaryEquationScale = 0.95;
         result = `\\begin{matrix}`;
         result += `\\dot{T} = T(c_1)\\\\`;
         result += `\\dot{S} = S(c_1)\\\\`;
@@ -539,9 +546,10 @@ var getSecondaryEquation = () => {
         theory.secondaryEquationScale = 1.2;
         const cStr = `c=${cBigNum.toString(0)}`;
         const c0Str = `c_0=${c0BigNum.toString(0)}`;
+        const tsmTerm = c1Ms.level > 0 ? `TSM` : ``;
 
         result = "\\begin{matrix}";
-        result += `\\dot{\\rho} = t{q_1}{q_2}TSM{c_0}\\\\`;
+        result += `\\dot{\\rho} = t{q_1}{q_2}${tsmTerm}{c_0}\\\\`;
         result += `${cStr}\\\\${c0Str}`;
         result += `\\end{matrix}`;
     }
