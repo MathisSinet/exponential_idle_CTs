@@ -541,7 +541,7 @@ var getSecondaryEquation = () => {
         const c0Str = `c_0=${c0BigNum.toString(0)}`;
 
         result = "\\begin{matrix}";
-        result += `\\dot{\\rho} = t{q_1}{q_2}{c_0}\\\\`;
+        result += `\\dot{\\rho} = t{q_1}{q_2}TSM{c_0}\\\\`;
         result += `${cStr}\\\\${c0Str}`;
         result += `\\end{matrix}`;
     }
