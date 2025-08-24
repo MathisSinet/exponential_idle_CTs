@@ -207,6 +207,18 @@ var init = () => {
     theory.createBuyAllUpgrade(1, currency, permaCosts[1]);
     theory.createAutoBuyerUpgrade(2, currency, permaCosts[2]);
 
+    {
+        let debugPerma1 = theory.createPermanentUpgrade(100, currency, new FreeCost);
+        debugPerma1.getDescription = () => Localization.getUpgradeMultCustomDesc(currency.symbol, "10");
+        debugPerma1.boughtOrRefunded = (_) => currency.value *= BigNumber.TEN;
+        let debugPerma2 = theory.createPermanentUpgrade(101, currency, new FreeCost);
+        debugPerma2.getDescription = () => Localization.getUpgradeMultCustomDesc(currency.symbol, "1e10")
+        debugPerma2.boughtOrRefunded = (_) => currency.value *= BigNumber.TEN.pow(BigNumber.TEN);
+        let debugPerma3 = theory.createPermanentUpgrade(102, currency, new FreeCost);
+        debugPerma3.getDescription = () => Localization.getUpgradeMultCustomDesc(currency.symbol, "1e100");
+        debugPerma3.boughtOrRefunded = (_) => currency.value *= BigNumber.TEN.pow(BigNumber.HUNDRED);
+    }
+
     /*
         Milestones
     */
