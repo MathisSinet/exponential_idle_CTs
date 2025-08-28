@@ -474,8 +474,17 @@ var createSwitcherMenu = () => {
             children: [
                 ui.createLatexLabel({
                     margin: new Thickness(0, 0, 0, 6),
-                    text: "Switching the mode resets your currencies and levels "+
-                    "but $\\max{h(\\phi)}$ is kept.",
+                    text: () => {
+                        const newcurrency = Utils.getMath(alphaMode ? "\\rho" : "\\alpha")
+                        return `Swap $h$ and $k$ in the integral and switch the currency to ${newcurrency}.`;
+                    },
+                    horizontalTextAlignment: TextAlignment.CENTER,
+                    verticalTextAlignment: TextAlignment.CENTER
+                }),
+                ui.createLatexLabel({
+                    margin: new Thickness(0, 0, 0, 6),
+                    text: "Your currencies and levels are reset"+
+                    " but $\\max{h(\\phi)}$ is kept.",
                     horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER
                 }),
