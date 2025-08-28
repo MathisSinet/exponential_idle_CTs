@@ -4,6 +4,7 @@ import { Localization } from "../api/Localization";
 import { ExponentialCost, FirstFreeCost, FreeCost } from '../api/Costs';
 import { Utils } from '../api/Utils';
 import { log } from 'winjs';
+import { ui } from '../api/ui/UI';
 
 var id = "nli_beta";
 
@@ -84,7 +85,6 @@ var a0, a1, a2;
 var b0, b1;
 var a0a, a1a, a2a;
 var b0a, b1a;
-var switcher;
 
 // UI
 var rhodot = ZERO;
@@ -123,11 +123,13 @@ const b1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const b1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 var getB1 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0)
 
+var getRhoExponent = () => (maxh + BigNumber.from(10.0001)).log10().log10() * tauExpMult;
+
 var getPublicationMultiplier = (tau) => tau.pow(pubMultExp);
 
 var getPublicationMultiplierFormula = (symbol) => `{${symbol}}^{${pubMultExp}}`;
 
-var getTau = () => (currencyRho.value).pow((maxh + BigNumber.from(10.0001)).log10().log10() * tauExpMult);
+var getTau = () => currencyRho.value.pow(getRhoExponent());
 
 //var getCurrencyFromTau = (tau) => [value, symbol];
 
@@ -231,17 +233,6 @@ var init = () => {
     ///////////////////
     // Regular Upgrades
 
-    {
-        switcher = theory.createUpgrade(0, currencyRho, new FreeCost);
-        switcher.getDescription = (_) => "Switch";
-        switcher.getInfo = (_) => "Switch";
-        switcher.bought = (_) => {
-            switcher.level = 0;
-            switchMode();
-        }
-        switcher.isAutoBuyable = false;
-    }
-
     // Rho Upgrades
     {
         let getDesc = (level) => `a_0=${getA0(level).toString(0)}`;
@@ -319,7 +310,7 @@ var init = () => {
     //// Milestone Upgrades
 
     
-
+    updateAvailability();
 }
 
 var updateAvailability = () => {
@@ -384,6 +375,7 @@ var setInternalState = (stateStr) => {
     if (!stateStr) return;
 
     const state = JSON.parse(stateStr);
+
     alphaMode = state.alphaMode ?? false;
     maxh = BigNumber.fromBase64String(state.maxh ?? ZERO.toBase64String());
 }
@@ -391,6 +383,117 @@ var setInternalState = (stateStr) => {
 
 /////
 // UI
+
+var createSwitcherFrame = () => {
+    let triggerable = true;
+    let fontSize = Math.min(ui.screenWidth / 13, ui.screenHeight / 18);
+    let targetWidth = 50;
+
+    let label = ui.createLabel({
+        margin: new Thickness(0, 0, 0, 0),
+        padding: new Thickness(2, 0, 10, 10),
+        text: "⇌",
+        textColor: Color.TEXT_MEDIUM,
+        fontAttributes: FontAttributes.BOLD,
+        horizontalTextAlignment: TextAlignment.CENTER,
+        verticalTextAlignment: TextAlignment.END,
+        fontSize: fontSize,
+        opacity: 0,
+    })
+
+    let adjustmentDone = false;
+    label.onSizeChanged = () => {
+        if (!adjustmentDone && label.width > 0) {
+            label.fontSize = fontSize * targetWidth / label.width;
+            label.opacity = 1;
+            adjustmentDone = true;
+        }
+    };
+
+    label.onTouched = (e) =>
+    {
+        if(e.type == TouchType.PRESSED)
+        {
+            label.opacity = 0.4;
+        }
+        else if(e.type.isReleased())
+        {
+            label.opacity = 1;
+            if(triggerable)
+            {
+                Sound.playClick();
+                createSwitcherMenu().show();
+            }
+            else
+                triggerable = true;
+        }
+        else if(e.type == TouchType.MOVED && (e.x < 0 || e.y < 0 ||
+        e.x > label.width || e.y > label.height))
+        {
+            label.opacity = 0.4;
+            triggerable = false;
+        }
+    };
+
+    return label;
+}
+
+const switcherFrame = createSwitcherFrame();
+
+var getEquationOverlay = () =>
+{
+    let result = ui.createGrid
+    ({
+        inputTransparent: true,
+        cascadeInputTransparent: false,
+        children:
+        [
+            ui.createGrid
+            ({
+                row: 0, column: 0,
+                margin: new Thickness(4),
+                horizontalOptions: LayoutOptions.START,
+                verticalOptions: LayoutOptions.START,
+                inputTransparent: true,
+                cascadeInputTransparent: false,
+                children:
+                [
+                    switcherFrame
+                ]
+            }),
+        ]
+    });
+    return result;
+}
+
+var createSwitcherMenu = () => {
+    let menu = ui.createPopup({
+        title: "Switch Mode",
+        isPeekable: true,
+        content: ui.createStackLayout({
+            children: [
+                ui.createLatexLabel({
+                    margin: new Thickness(0, 0, 0, 6),
+                    text: "Switching the mode resets your currencies and levels "+
+                    "but $\\max{h(\\phi)}$ is kept.",
+                    horizontalTextAlignment: TextAlignment.CENTER,
+                    verticalTextAlignment: TextAlignment.CENTER
+                }),
+                ui.createButton
+                ({
+                    margin: new Thickness(0, 0, 0, 6),
+                    text: () => "Switch Now",
+                    onReleased: () => { 
+                        switchMode(),
+                        menu.hide()
+                    }
+                })
+            ]
+        })
+    })
+
+    return menu;
+}
 
 var isCurrencyVisible = (index) => !(index ^ alphaMode);
 
@@ -434,7 +537,7 @@ var getTertiaryEquation = () => {
     let result = ``;
 
     result += `h(\\phi)=${cur_h},\\max{h(\\phi)} = ${maxh}`;
-    result += `,\\\\ \\log_{10}(\\log_{10}(\\max{h(\\phi)}))/5=${(maxh + BigNumber.from(10.0001)).log10().log10() * tauExpMult}`
+    result += `,\\\\ \\log_{10}(\\log_{10}(\\max{h(\\phi)}))/5=${getRhoExponent()}`
     result += `,\\rho^{\\log_{10}(\\log_{10}(\\max{h(\\phi)}))/5}=${getTau()}`;
 
     return result;
