@@ -85,7 +85,7 @@ function formatRates(number) {
 }
 
 function formatRho(number) {
-  if (number >= ee6) {
+  if (number >= ee6 || number < BigNumber.from(1e6)) {
     return number.toString();
   }
   const log10 = number.log10().toNumber();
@@ -522,6 +522,7 @@ var getSecondaryEquation = () => {
       return result;
     }
     case 2: {
+      if (theory.tauPublished < BigNumber.ONE) return "";
       theory.secondaryEquationHeight = 120;
       theory.secondaryEquationScale = 0.95;
       let result = "";
