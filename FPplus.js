@@ -18,7 +18,7 @@ var releaseOrder = "6";
 requiresGameVersion("1.4.33");
 
 const e600 = BigNumber.from("1e600");
-const ee4 = BigNumber.from("ee4");
+//const ee4 = BigNumber.from("ee4");
 const ee6 = BigNumber.from("ee6");
 const I32_MAX = 2**31-1;
 
@@ -37,6 +37,7 @@ var pubtime_actual = 0;
 var A = BigNumber.ONE;
 var tvar, c1, c2, q1, q2, r1, n1, s;
 var snexp, snboost, nboost, fractalTerm, sterm, expterm, speedupMs;
+var autoremove_milestones;
 
 var n = 1;
 var prevN = 1;
@@ -46,6 +47,9 @@ var U_n = BigNumber.ONE;
 
 var updateN_flag = true;
 var adBoost = BigNumber.ONE;
+
+var instant_rates = 0;
+var instant_rates_actual = 0;
 
 var stage = 1;
 
@@ -69,6 +73,25 @@ function formatNumber(number) {
     return `${number / BigNumber.TEN.pow(l)}\\text{e-${Math.abs(l)}}`;
   }
   return number.toString(3);
+}
+
+function formatRates(number) {
+  if (number >= 0.001 || number == 0) {
+    return number.toPrecision(5);
+  }
+  else {
+    return number.toExponential(4);
+  }
+}
+
+function formatRho(number) {
+  if (number >= ee6) {
+    return number.toString();
+  }
+  const log10 = number.log10().toNumber();
+  const exp = Math.floor(log10);
+  const dec = 10**(log10 - exp);
+  return `${dec.toPrecision(4)}e${exp}`;
 }
 
 function getTimeString(time) {
@@ -182,6 +205,12 @@ var init = () => {
   theory.createPublicationUpgrade(0, currency, 0);
   theory.createBuyAllUpgrade(1, currency, 0);
   theory.createAutoBuyerUpgrade(2, currency, 0);
+  {
+    autoremove_milestones = theory.createPermanentUpgrade(3, currency, new FreeCost);
+    autoremove_milestones.getDescription = (_) => `Autoremove speedup milestones: ${autoremove_milestones.level ? 'ON' : 'OFF'}`;
+    autoremove_milestones.getInfo = (_) => `Automatically remove speedup milestones if the next $s$ after the cap is affordable`;
+    autoremove_milestones.boughtOrRefunded = (_) => autoremove_milestones.level %= 2;
+  }
 
   ///////////////////////
   //// Milestone Upgrades
@@ -272,7 +301,11 @@ var init = () => {
     speedupMs = theory.createMilestoneUpgrade(6, 17);
     speedupMs.getDescription = () => 
       `Speedup the theory by $\\times 3$ but decreases $s$ level cap to $${scaps[Math.min(speedupMs.level + 1, 17)]}$`
-    speedupMs.boughtOrRefunded = (_) => updateAvailability();
+    speedupMs.boughtOrRefunded = (_) => {
+      updateAvailability();
+      theory.invalidatePrimaryEquation();
+      theory.invalidateSecondaryEquation();
+    }
   }
 
   updateAvailability();
@@ -327,16 +360,19 @@ var updateAvailability = () => {
   expterm.isAvailable = sterm.level === 1;
   speedupMs.isAvailable = expterm.level === 1;
 
-  s.maxlevel = scaps[speedupMs.level];
+  s.maxLevel = scaps[speedupMs.level];
   let max_speedup_milestones = 17;
   while (s.level > scaps[max_speedup_milestones]) max_speedup_milestones--;
+  speedupMs.level = Math.min(speedupMs.level, max_speedup_milestones);
   speedupMs.maxLevel = max_speedup_milestones;
+  speedupMs.isAvailable = speedupMs.isAvailable && speedupMs.maxLevel > 0;
 };
 
 var tick = (elapsedTime, multiplier) => {
-  multiplier = BigNumber.from(multiplier) * getspeedup(speedupMs.level);
-  let dt = BigNumber.from(elapsedTime * multiplier);
-  let bonus = theory.publicationMultiplier;
+  const speedup = getspeedup(speedupMs.level);
+  multiplier = BigNumber.from(multiplier) * speedup;
+  const dt = BigNumber.from(elapsedTime * multiplier);
+  const bonus = theory.publicationMultiplier;
   adBoost = multiplier;
 
   if (c1.level === 0) return;
@@ -351,7 +387,7 @@ var tick = (elapsedTime, multiplier) => {
   }
   t_cumulative += getTdot(tvar.level) * dt;
   pubtime += elapsedTime;
-  pubtime_actual += elapsedTime * getspeedup(speedupMs.level).toNumber();
+  pubtime_actual += elapsedTime * speedup.toNumber();
 
   A = fractalTerm.level > 0 ? approx(q2.level) : 1;
 
@@ -366,12 +402,23 @@ var tick = (elapsedTime, multiplier) => {
   rhodot = bonus * getC1(c1.level) * getC2(c2.level) * T_n.pow(7 + (sterm.level > 0 ? getS(s.level).toNumber() - 2 : 0)) * t_cumulative;
   rhodot *= fractalTerm.level > 0 ? q : BigNumber.ONE;
   rhodot *= fractalTerm.level > 1 ? r : BigNumber.ONE;
-  //rhodot = BigNumber.from(rhodot)
 
+  const prev_tau = getTau();
   currency.value += rhodot * dt;
+  const new_tau = getTau();
 
-  if (stage === 2) theory.invalidatePrimaryEquation();
-  if (stage === 2) theory.invalidateSecondaryEquation();
+  instant_rates = ((new_tau.log10() - prev_tau.log10()) / (elapsedTime / 3600)).toNumber();
+  instant_rates_actual = ((new_tau.log10() - prev_tau.log10()) / (elapsedTime * speedup.toNumber() / 3600)).toNumber();
+
+  if (autoremove_milestones.level == 1
+    && speedupMs.level > 0
+    && s.level == scaps[speedupMs.level] 
+    && currency.value * BigNumber.from(1.001) > s.cost.getCost(s.level + 1)) {
+      speedupMs.level--;
+      updateAvailability();
+    }
+  if (stage >= 2) theory.invalidatePrimaryEquation();
+  if (stage >= 2) theory.invalidateSecondaryEquation();
   theory.invalidateTertiaryEquation();
   theory.invalidateQuaternaryValues();
 };
@@ -395,6 +442,7 @@ var postPublish = () => {
   A = BigNumber.ONE;
   theory.invalidateTertiaryEquation();
   theory.invalidateQuaternaryValues();
+  updateAvailability();
 };
 var getInternalState = () => `${q} ${r} ${t_cumulative} ${pubtime} ${pubtime_actual}`;
 
@@ -438,12 +486,23 @@ var getPrimaryEquation = () => {
       return result;
     }
     case 2: {
-      theory.primaryEquationHeight = 60;
+      theory.primaryEquationHeight = 65;
       theory.primaryEquationScale = 0.9;
       let result = ``;
       result += `\\text{Current speed multiplier:} ${getspeedup(speedupMs.level)}\\\\`;
       result += `\\text{Publication time: ${getTimeString(pubtime)}} \\\\`;
       result += `\\text{Publication time (actual): ${getTimeString(pubtime_actual)}}`;
+      return result;
+    }
+    case 3: {
+      theory.primaryEquationHeight = 65;
+      theory.primaryEquationScale = 0.9;
+      let result = ``;
+      result += `\\rho = ${formatRho(currency.value)}\\\\`;
+      result += `\\dot{\\rho} = ${formatRho(rhodot * adBoost)}\\\\`;
+      if (theory.canPublish) {
+        result += `\\max{\\rho} = ${formatRho(getCurrencyFromTau(theory.tau)[0])}`;
+      }
       return result;
     }
   }
@@ -463,13 +522,34 @@ var getSecondaryEquation = () => {
       return result;
     }
     case 2: {
-      theory.secondaryEquationHeight = 50;
-      theory.secondaryEquationScale = 1;
+      theory.secondaryEquationHeight = 120;
+      theory.secondaryEquationScale = 0.95;
       let result = "";
       const dws = `\\,\\,`;
-      const rates_str = `\\tau/\\text{hr}${dws}\\text{rates}${dws}`;
-      result += rates_str + `\\text{(cumulative):}${((theory.tau.log10() - theory.tauPublished.log10()) / (pubtime / 3600)).toNumber()}`;
-
+      const th_cumulative = formatRates(((theory.tau.log10() - theory.tauPublished.log10()) / (pubtime / 3600)).toNumber());
+      const th_cumulative_actual = formatRates(((theory.tau.log10() - theory.tauPublished.log10()) / (pubtime_actual / 3600)).toNumber());
+      const rates_str = `\\tau/\\text{hr}${dws}\\text{rates}`;
+      result += `\\text{Cumulative}${dws}${rates_str}:\\\\`;
+      result += `\\text{Current:}${th_cumulative}\\\\`;
+      result += `\\text{Actual:}${th_cumulative_actual}\\\\`;
+      result += `\\text{Instant}${dws}${rates_str}:\\\\`;
+      result += `\\text{Current:}${formatRates(instant_rates)}\\\\`;
+      result += `\\text{Actual:}${formatRates(instant_rates_actual)}\\\\`;
+      return result;
+    }
+    case 3: {
+      theory.secondaryEquationHeight = 150;
+      theory.secondaryEquationScale = 0.95;
+      let result = ``;
+      const formatCost = (upg, cost) => `${upg}\\,\\,\\text{cost}\\,=${formatRho(cost)}\\\\`;
+      const getCost = (upg) => upg.cost.getCost(upg.level);
+      result += formatCost("c_1", getCost(c1));
+      result += formatCost("c_2", getCost(c2));
+      result += formatCost("q_1", getCost(q1));
+      result += formatCost("q_2", getCost(q2));
+      result += formatCost("r_1", getCost(r1));
+      result += formatCost("n", getCost(n1));
+      result += formatCost("s", getCost(s));
       return result;
     }
   }
@@ -529,7 +609,7 @@ var goToPreviousStage = () => {
   quaternaryEntries = [];
   theory.invalidateQuaternaryValues();
 };
-var canGoToNextStage = () => stage < 2;
+var canGoToNextStage = () => stage < 3;
 var goToNextStage = () => {
   stage++;
   theory.invalidatePrimaryEquation();
