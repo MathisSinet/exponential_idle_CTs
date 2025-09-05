@@ -106,23 +106,23 @@ const permaCosts = [
 
 const a0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-var getA0 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0)
+var getA0 = (level) => BigNumber.TWO.pow(level);
 
 const a1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-var getA1 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0)
+var getA1 = (level) => BigNumber.TWO.pow(level);
 
 const a2Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a2aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-var getA2 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0)
+var getA2 = (level) => BigNumber.TWO.pow(level);
 
 const b0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const b0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-var getB0 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0)
+var getB0 = (level) => BigNumber.TWO.pow(level);
 
 const b1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const b1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-var getB1 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0)
+var getB1 = (level) => BigNumber.TWO.pow(level);
 
 var getPublicationMultiplier = (tau) => tau.pow(pubMultExp);
 
@@ -223,69 +223,79 @@ var init = () => {
 
     // Rho Upgrades
     {
-        let getDesc = (level) => `a_0=${getA0(level).toString(0)}`;
+        let getDesc = (level) => `a_0=2^{${level}}`;
+        let getInfo = (level) => `a_0=${getA0(level).toString(0)}`;
         a0 = theory.createUpgrade(1, currencyRho, a0Cost);
         a0.getDescription = (_) => Utils.getMath(getDesc(a0.level));
-        a0.getInfo = (amount) => Utils.getMathTo(getDesc(a0.level), getDesc(a0.level + amount));
+        a0.getInfo = (amount) => Utils.getMathTo(getInfo(a0.level), getInfo(a0.level + amount));
     }
     {
-        let getDesc = (level) => `a_1=${getA1(level).toString(0)}`;
+        let getDesc = (level) => `a_1=2^{${level}}`;
+        let getInfo = (level) => `a_1=${getA1(level).toString(0)}`;
         a1 = theory.createUpgrade(2, currencyRho, a1Cost);
         a1.getDescription = (_) => Utils.getMath(getDesc(a1.level));
-        a1.getInfo = (amount) => Utils.getMathTo(getDesc(a1.level), getDesc(a1.level + amount));
+        a1.getInfo = (amount) => Utils.getMathTo(getInfo(a1.level), getInfo(a1.level + amount));
     }
     {
-        let getDesc = (level) => `a_2=${getA2(level).toString(0)}`;
+        let getDesc = (level) => `a_2=2^{${level}}`;
+        let getInfo = (level) => `a_2=${getA2(level).toString(0)}`;
         a2 = theory.createUpgrade(3, currencyRho, a2Cost);
         a2.getDescription = (_) => Utils.getMath(getDesc(a2.level));
-        a2.getInfo = (amount) => Utils.getMathTo(getDesc(a2.level), getDesc(a2.level + amount));
+        a2.getInfo = (amount) => Utils.getMathTo(getInfo(a2.level), getInfo(a2.level + amount));
     }
 
     {
-        let getDesc = (level) => `b_0=${getB0(level).toString(0)}`;
+        let getDesc = (level) => `b_0=2^{${level}}`;
+        let getInfo = (level) => `b_0=${getB0(level).toString(0)}`;
         b0 = theory.createUpgrade(4, currencyRho, b0Cost);
         b0.getDescription = (_) => Utils.getMath(getDesc(b0.level));
-        b0.getInfo = (amount) => Utils.getMathTo(getDesc(b0.level), getDesc(b0.level + amount));
+        b0.getInfo = (amount) => Utils.getMathTo(getInfo(b0.level), getInfo(b0.level + amount));
     }
     {
-        let getDesc = (level) => `b_1=${getB1(level).toString(0)}`;
+        let getDesc = (level) => `b_1=2^{${level}}`;
+        let getInfo = (level) => `b_1=${getB1(level).toString(0)}`;
         b1 = theory.createUpgrade(5, currencyRho, b1Cost);
         b1.getDescription = (_) => Utils.getMath(getDesc(b1.level));
-        b1.getInfo = (amount) => Utils.getMathTo(getDesc(b1.level), getDesc(b1.level + amount));
+        b1.getInfo = (amount) => Utils.getMathTo(getInfo(b1.level), getInfo(b1.level + amount));
     }
 
 
     // Alpha Upgrades
     {
-        let getDesc = (level) => `a_0=${getA0(level).toString(0)}`;
+        let getDesc = (level) => `a_0=2^{${level}}`;
+        let getInfo = (level) => `a_0=${getA0(level).toString(0)}`;
         a0a = theory.createUpgrade(11, currencyAlpha, a0aCost);
         a0a.getDescription = (_) => Utils.getMath(getDesc(a0a.level));
-        a0a.getInfo = (amount) => Utils.getMathTo(getDesc(a0a.level), getDesc(a0a.level + amount));
+        a0a.getInfo = (amount) => Utils.getMathTo(getInfo(a0a.level), getInfo(a0a.level + amount));
     }
     {
-        let getDesc = (level) => `a_1=${getA1(level).toString(0)}`;
+        let getDesc = (level) => `a_1=2^{${level}}`;
+        let getInfo = (level) => `a_1=${getA1(level).toString(0)}`;
         a1a = theory.createUpgrade(12, currencyAlpha, a1aCost);
         a1a.getDescription = (_) => Utils.getMath(getDesc(a1a.level));
-        a1a.getInfo = (amount) => Utils.getMathTo(getDesc(a1a.level), getDesc(a1a.level + amount));
+        a1a.getInfo = (amount) => Utils.getMathTo(getInfo(a1a.level), getInfo(a1a.level + amount));
     }
     {
-        let getDesc = (level) => `a_2=${getA2(level).toString(0)}`;
+        let getDesc = (level) => `a_2=2^{${level}}`;
+        let getInfo = (level) => `a_2=${getA2(level).toString(0)}`;
         a2a = theory.createUpgrade(13, currencyAlpha, a2aCost);
         a2a.getDescription = (_) => Utils.getMath(getDesc(a2a.level));
-        a2a.getInfo = (amount) => Utils.getMathTo(getDesc(a2a.level), getDesc(a2a.level + amount));
+        a2a.getInfo = (amount) => Utils.getMathTo(getInfo(a2a.level), getInfo(a2a.level + amount));
     }
 
     {
-        let getDesc = (level) => `b_0=${getB0(level).toString(0)}`;
+        let getDesc = (level) => `b_0=2^{${level}}`;
+        let getInfo = (level) => `b_0=${getB0(level).toString(0)}`;
         b0a = theory.createUpgrade(14, currencyAlpha, b0aCost);
         b0a.getDescription = (_) => Utils.getMath(getDesc(b0a.level));
-        b0a.getInfo = (amount) => Utils.getMathTo(getDesc(b0a.level), getDesc(b0a.level + amount));
+        b0a.getInfo = (amount) => Utils.getMathTo(getInfo(b0a.level), getInfo(b0a.level + amount));
     }
     {
-        let getDesc = (level) => `b_1=${getB1(level).toString(0)}`;
+        let getDesc = (level) => `b_1=2^{${level}}`;
+        let getInfo = (level) => `b_1=${getB1(level).toString(0)}`;
         b1a = theory.createUpgrade(15, currencyAlpha, b1aCost);
         b1a.getDescription = (_) => Utils.getMath(getDesc(b1a.level));
-        b1a.getInfo = (amount) => Utils.getMathTo(getDesc(b1a.level), getDesc(b1a.level + amount));
+        b1a.getInfo = (amount) => Utils.getMathTo(getInfo(b1a.level), getInfo(b1a.level + amount));
     }
 
     /////////////////////
