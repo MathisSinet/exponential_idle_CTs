@@ -8,7 +8,7 @@ import { ui } from '../api/ui/UI';
 
 var id = "nli_beta";
 
-const phi = BigNumber.from((1 + Math.sqrt(5))/2);
+const PHI = BigNumber.from((1 + Math.sqrt(5))/2);
 const ZERO = BigNumber.ZERO;
 const ONE = BigNumber.ONE;
 
@@ -95,7 +95,8 @@ var cur_h = ZERO;
 // Balance
 
 const pubMultExp = 0.1;
-const tauExpMult = BigNumber.from(1/5);
+const rhoExponent = 0.2;
+const maxhExponent = 0.2;
 
 const permaCosts = [
     1e8,
@@ -123,54 +124,41 @@ const b1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const b1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 var getB1 = (level) => Utils.getStepwisePowerSum(level, 2, 10, 0)
 
-var getRhoExponent = () => (maxh + BigNumber.from(10.0001)).log10().log10() * tauExpMult;
-
 var getPublicationMultiplier = (tau) => tau.pow(pubMultExp);
 
 var getPublicationMultiplierFormula = (symbol) => `{${symbol}}^{${pubMultExp}}`;
 
-var getTau = () => currencyRho.value.pow(getRhoExponent());
+var getTau = () => currencyRho.value.pow(rhoExponent) * maxh.pow(maxhExponent);
 
 //var getCurrencyFromTau = (tau) => [value, symbol];
 
 ////////
 // Utils
 
-let getTimeString = (time) =>
-{
-    let minutes = Math.floor(time / 60);
-    let seconds = time - minutes*60;
-    let timeString;
-    if(minutes >= 60)
-    {
-        let hours = Math.floor(minutes / 60);
-        if (hours >= 24)
-        {
-            let days = Math.floor(hours / 24);
-            hours -= days*24;
-            minutes -= hours*60 + days*60*24;
-            timeString = `
-                ${days}d  
-                ${hours}:${
-                minutes.toString().padStart(2, '0')}:${
-                seconds.toFixed(1).padStart(4, '0')}`;
-        }
-        else {
-            minutes -= hours*60;
-            timeString = `${hours}:${
-            minutes.toString().padStart(2, '0')}:${
-            seconds.toFixed(1).padStart(4, '0')}`;
-        }
-    }
-    else
-    {
-        timeString = `${minutes.toString()}:${
-        seconds.toFixed(1).padStart(4, '0')}`;
-    }
-    return timeString;
-};
+function getTimeString(time) {
+  let mins = Math.floor(time / 60);
+  let secs = time - 60 * mins;
+  let hours = Math.floor(mins / 60);
+  mins -= hours * 60;
+  let days = Math.floor(hours / 24);
+  hours -= days * 24;
 
-// Evaluates a polynomial at a given point. Inputs must be BigNumbers
+  const hours_f = hours.toString().padStart(2, "0");
+  const mins_f = mins.toString().padStart(2, "0");
+  const secs_f = secs.toFixed(1).padStart(4, "0");
+
+  if (days > 0) {
+    return `${days}d ${hours_f}:${mins_f}:${secs_f}`;
+  }
+  else if (hours > 0) {
+    return `${hours}:${mins_f}:${secs_f}`;
+  }
+  else {
+    return `${mins}:${secs_f}`;
+  }
+}
+
+/** Evaluates a polynomial at a given point. Inputs must be BigNumbers */
 var evalp = (poly, point) => {
     var res = ZERO;
 
@@ -181,7 +169,7 @@ var evalp = (poly, point) => {
     return res;
 }
 
-// Computes the Riemann-Stieltjes integral from two polynomials
+/** Computes the Riemann-Stieltjes integral from two polynomials */
 var rspInt = (poly1, poly2, lBound, hBound) => {
     var res = ZERO;
 
@@ -325,6 +313,7 @@ var updateAvailability = () => {
 
 var tick = (elapsedTime, multiplier) => {
     const dt = elapsedTime * multiplier;
+    const bonus = theory.publicationMultiplier;
 
     const va0 = getA0((alphaMode ? a0a : a0).level);
     const va1 = getA1((alphaMode ? a1a : a1).level);
@@ -336,17 +325,17 @@ var tick = (elapsedTime, multiplier) => {
     const k = [va0, va1, va2];
     const h = [vb0, vb1];
 
-    cur_h = evalp(h, phi);
+    cur_h = evalp(h, PHI);
     maxh = maxh.max(cur_h);
 
     if (alphaMode) {
-        const integral = rspInt(h, k, ZERO, phi);
-        alphadot = integral * multiplier;
+        const integral = rspInt(h, k, ZERO, PHI);
+        alphadot = integral * bonus * multiplier;
         currencyAlpha.value += alphadot * elapsedTime;
     }
     else {
-        const integral = rspInt(k, h, ZERO, phi);
-        rhodot = integral * multiplier;
+        const integral = rspInt(k, h, ZERO, PHI);
+        rhodot = integral * bonus * multiplier;
         currencyRho.value += rhodot * elapsedTime;
     }
     
@@ -379,7 +368,6 @@ var setInternalState = (stateStr) => {
     alphaMode = state.alphaMode ?? false;
     maxh = BigNumber.fromBase64String(state.maxh ?? ZERO.toBase64String());
 }
-
 
 /////
 // UI
@@ -537,7 +525,7 @@ var getSecondaryEquation = () => {
         result += `\\dot{\\rho} = ${rhodot.toString()}`;
     }
 
-    result += `\\\\${theory.latexSymbol}=\\max\\rho^{\\log_{10}(\\log_{10}(\\max{h(\\phi)}))/5}`;
+    result += `\\\\${theory.latexSymbol}=\\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}}`;
 
     return result;
 }
@@ -545,9 +533,10 @@ var getSecondaryEquation = () => {
 var getTertiaryEquation = () => {
     let result = ``;
 
-    result += `h(\\phi)=${cur_h},\\max{h(\\phi)} = ${maxh}`;
-    result += `,\\\\ \\log_{10}(\\log_{10}(\\max{h(\\phi)}))/5=${getRhoExponent()}`
-    result += `,\\rho^{\\log_{10}(\\log_{10}(\\max{h(\\phi)}))/5}=${getTau()}`;
+    result += `h(\\phi)=${cur_h}, \\max{h(\\phi)} = ${maxh}`;
+    if (!alphaMode) {
+        result += `\\\\ \\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}} = ${getTau()}`;
+    }
 
     return result;
 }
