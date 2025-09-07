@@ -17,11 +17,6 @@ import { TouchType } from '../api/ui/properties/TouchType';
 
 var id = "nli_beta";
 
-const PHI = BigNumber.from((1 + Math.sqrt(5))/2);
-const ZERO = BigNumber.ZERO;
-const ONE = BigNumber.ONE;
-
-
 var getName = (language) => {
     const names =
     {
@@ -80,6 +75,10 @@ let getLoc = (name, lang = menuLang) =>
 
 ///////////////
 // Declarations
+
+const PHI = BigNumber.from((1 + Math.sqrt(5))/2);
+const ZERO = BigNumber.ZERO;
+const ONE = BigNumber.ONE;
 
 var alphaMode = false;
 
@@ -144,6 +143,11 @@ var getTau = () => currencyRho.value.pow(rhoExponent) * maxh.pow(maxhExponent);
 ////////
 // Utils
 
+/**
+ * Returns a formatted time string
+ * @param {Number} time time in seconds
+ * @returns {string}
+ */
 function getTimeString(time) {
   let mins = Math.floor(time / 60);
   let secs = time - 60 * mins;
@@ -167,7 +171,11 @@ function getTimeString(time) {
   }
 }
 
-/** Evaluates a polynomial at a given point. Inputs must be BigNumbers */
+/** 
+ * Evaluates a polynomial at a given point. Inputs must be BigNumbers 
+ * @param {BigNumber[]} poly Polynomial to be evaluated
+ * @param {BigNumber} point
+ */
 var evalp = (poly, point) => {
     var res = ZERO;
 
@@ -178,7 +186,14 @@ var evalp = (poly, point) => {
     return res;
 }
 
-/** Computes the Riemann-Stieltjes integral from two polynomials */
+/** 
+ * Computes the Riemann-Stieltjes integral from two polynomials 
+ * @param {BigNumber[]} poly1
+ * @param {BigNumber[]} poly2
+ * @param {BigNumber} lBound
+ * @param {BigNumber} hBound
+ * @returns {BigNumber} Integral of poly1(X) * d(poly2(X)) between lBound and hBound
+ * */
 var rspInt = (poly1, poly2, lBound, hBound) => {
     var res = ZERO;
 
@@ -195,6 +210,9 @@ var rspInt = (poly1, poly2, lBound, hBound) => {
 ////////////
 // Functions
 
+/**
+ * Switches the mode between alpha mode and rho mode
+ */
 var switchMode = () => {
     alphaMode = !alphaMode;
 
@@ -381,7 +399,10 @@ var setInternalState = (stateStr) => {
 /////
 // UI
 
-// UI image size
+/** 
+ * UI image size
+ * @param {Number} width 
+ */
 var getImageSize = (width) => {
   if(width >= 1080)
     return 48;
@@ -559,7 +580,7 @@ var createMilestoneUpgradeUI = () => {
             ui.createFrame({
                 horizontalOptions: LayoutOptions.FILL_AND_EXPAND,
                 verticalOptions: LayoutOptions.FILL_AND_EXPAND,
-                widthRequest: 2000,
+                widthRequest: ui.screenWidth,
                 heightRequest: Math.round(ui.screenHeight / 13),
                 content:
                 ui.createLatexLabel({
@@ -576,7 +597,7 @@ var createMilestoneUpgradeUI = () => {
 
 var createMilestoneMenu = () => {
     let menu = ui.createPopup({
-        title: "Milestones",
+        title: Localization.get("PublicationPopupMilestones"),
         content: ui.createStackLayout({
             children: [
                 ui.createLatexLabel({
@@ -612,6 +633,11 @@ var createMilestoneMenu = () => {
     return menu;
 }
 
+/**
+ * 0 is for rho, 1 is for alpha
+ * @param {Number} index 
+ * @returns 
+ */
 var isCurrencyVisible = (index) => !(index ^ alphaMode);
 
 var getPrimaryEquation = () => {
