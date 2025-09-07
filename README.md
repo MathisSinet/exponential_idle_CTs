@@ -18,3 +18,8 @@ Custom Theory about the Collatz Conjecture, reboot of the original version from 
 developed with d4Nf6Bg51-0. WIP
 
 Check out [the original version](https://github.com/propfeds/collatz-conjecture).
+
+## Fractal Patterns+
+
+Modified version of the official custom theory Fractal Patterns originally developed by [XLII](https://github.com/tredec).
+This mod expands content past completion (e600τ).
