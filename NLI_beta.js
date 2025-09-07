@@ -555,42 +555,110 @@ var createSwitcherMenu = () => {
 }
 
 var createMilestoneUpgradeUI = () => {
+    let refund_button_triggerable = true;
+    let frame_triggerable = true;
+
+    let refundButton = ui.createImage({
+        useTint: false,
+        opacity: 0.5,
+        source: ImageSource.REFUND,
+        widthRequest: getImageSize(ui.screenWidth),
+        heightRequest: getImageSize(ui.screenWidth),
+        aspect: Aspect.ASPECT_FILL,
+        margin: new Thickness(0,0,0,0),
+        isVisible: true,
+        horizontalOptions: LayoutOptions.END,
+        verticalOptions: LayoutOptions.CENTER,
+    });
+
+    refundButton.onTouched = (e) =>
+    {
+        if(e.type == TouchType.PRESSED)
+        {
+            refundButton.opacity = 0.2;
+        }
+        else if(e.type.isReleased())
+        {
+            refundButton.opacity = 0.5;
+            if(refund_button_triggerable)
+            {
+                Sound.playClick();
+                log("Upgrade refunded");
+            }
+            else
+                refund_button_triggerable = true;
+        }
+        else if(e.type == TouchType.MOVED && (e.x < 0 || e.y < 0 ||
+        e.x > refundButton.width || e.y > refundButton.height))
+        {
+            refundButton.opacity = 0.2;
+            refund_button_triggerable = false;
+        }
+    };
+
+    let frame = ui.createFrame({
+        horizontalOptions: LayoutOptions.FILL_AND_EXPAND,
+        verticalOptions: LayoutOptions.FILL_AND_EXPAND,
+        widthRequest: ui.screenWidth,
+        heightRequest: Math.round(ui.screenHeight / 13),
+        content: ui.createGrid({
+            columnDefinitions: ["*", "auto"],
+            inputTransparent: true,
+            cascadeInputTransparent: true,
+            children: [
+                ui.createLatexLabel({
+                    opacity: 0.8,
+                    margin: new Thickness(8,3,0,0),
+                    text: Utils.getMath("x = \\text{dummy}"),
+                    verticalOptions: LayoutOptions.CENTER,
+                    row: 0,
+                    column: 0,
+                }),
+                ui.createLatexLabel({
+                    opacity: 0.8,
+                    fontSize: 11,
+                    margin: new Thickness(0,0,8,8),
+                    text: Utils.getMath("0/0"),
+                    verticalOptions: LayoutOptions.END,
+                    row: 0,
+                    column: 1,
+                }),
+            ]
+        })
+    })
+
+    frame.onTouched = (e) =>
+    {
+        if(e.type == TouchType.PRESSED)
+        {
+            frame.opacity = 0.4;
+        }
+        else if(e.type.isReleased())
+        {
+            frame.opacity = 1;
+            if(frame_triggerable)
+            {
+                Sound.playClick();
+                log("Upgrade bought");
+            }
+            else
+                frame_triggerable = true;
+        }
+        else if(e.type == TouchType.MOVED && (e.x < 0 || e.y < 0 ||
+        e.x > frame.width || e.y > frame.height))
+        {
+            frame.opacity = 0.4;
+            frame_triggerable = false;
+        }
+    };
+
     return ui.createStackLayout({
         orientation: StackOrientation.HORIZONTAL,
         horizontalOptions: LayoutOptions.START_AND_EXPAND,
         margin: new Thickness(0,2,0,0),
         children: [
-            ui.createImage({
-                useTint: false,
-                opacity: 0.5,
-                source: ImageSource.REFUND,
-                widthRequest: getImageSize(ui.screenWidth),
-                heightRequest: getImageSize(ui.screenWidth),
-                aspect: Aspect.ASPECT_FILL,
-                margin: new Thickness(0,0,0,0),
-                onTouched: (e) => {
-                if (e.type.isReleased()) {
-                    log("refund");
-                }
-                },
-                isVisible: true,
-                horizontalOptions: LayoutOptions.END,
-                verticalOptions: LayoutOptions.CENTER,
-            }),
-            ui.createFrame({
-                horizontalOptions: LayoutOptions.FILL_AND_EXPAND,
-                verticalOptions: LayoutOptions.FILL_AND_EXPAND,
-                widthRequest: ui.screenWidth,
-                heightRequest: Math.round(ui.screenHeight / 13),
-                content:
-                ui.createLatexLabel({
-                    opacity: 0.8,
-                    margin: new Thickness(8,3,0,0),
-                    text: Utils.getMath("x = \\text{dummy}"),
-                    verticalOptions: LayoutOptions.CENTER
-                })
-            })
-            
+            refundButton,
+            frame
         ]
     })
 }
@@ -607,7 +675,7 @@ var createMilestoneMenu = () => {
                     verticalTextAlignment: TextAlignment.CENTER
                 }),
                 ui.createLatexLabel({
-                    margin: new Thickness(0, 0, 0, 6),
+                    margin: new Thickness(0, 0, 0, 8),
                     text: Utils.getMath("T = 0"),
                     horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER
@@ -615,6 +683,13 @@ var createMilestoneMenu = () => {
                 ui.createLatexLabel({
                     margin: new Thickness(0, 0, 0, 6),
                     text: Localization.format(Localization.get("PublicationPopupMileDesc"), Utils.getMath("T=10")),
+                    horizontalTextAlignment: TextAlignment.CENTER,
+                    verticalTextAlignment: TextAlignment.CENTER
+                }),
+                ui.createLatexLabel({
+                    margin: new Thickness(0, 0, 0, 6),
+                    fontSize: 12,
+                    text: Localization.format(Localization.get("PublicationPopupMileLeft"), 0),
                     horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER
                 }),
