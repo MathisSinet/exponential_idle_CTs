@@ -5,6 +5,15 @@ import { ExponentialCost, FirstFreeCost, FreeCost } from '../api/Costs';
 import { Utils } from '../api/Utils';
 import { log } from 'winjs';
 import { ui } from '../api/ui/UI';
+import { Aspect } from '../api/ui/properties/Aspect';
+import { Color } from '../api/ui/properties/Color';
+import { FontAttributes } from '../api/ui/properties/FontAttributes';
+import { ImageSource } from '../api/ui/properties/ImageSource';
+import { LayoutOptions } from '../api/ui/properties/LayoutOptions';
+import { StackOrientation } from '../api/ui/properties/StackOrientation';
+import { TextAlignment } from '../api/ui/properties/TextAlignment';
+import { Thickness } from '../api/ui/properties/Thickness';
+import { TouchType } from '../api/ui/properties/TouchType';
 
 var id = "nli_beta";
 
@@ -372,6 +381,17 @@ var setInternalState = (stateStr) => {
 /////
 // UI
 
+// UI image size
+var getImageSize = (width) => {
+  if(width >= 1080)
+    return 48;
+  if(width >= 720)
+    return 36;
+  if(width >= 360)
+    return 24;
+  return 20;
+}
+
 var createSwitcherFrame = () => {
     let triggerable = true;
     let fontSize = Math.min(ui.screenWidth / 13, ui.screenHeight / 18);
@@ -432,6 +452,8 @@ var getEquationOverlay = () =>
 {
     let result = ui.createGrid
     ({
+        columnDefinitions: ["1*", "3*", "1*"],
+        columnSpacing: 0,
         inputTransparent: true,
         cascadeInputTransparent: false,
         children:
@@ -439,7 +461,7 @@ var getEquationOverlay = () =>
             ui.createGrid
             ({
                 row: 0, column: 0,
-                margin: new Thickness(4),
+                margin: new Thickness(0,0,2,0),
                 horizontalOptions: LayoutOptions.START,
                 verticalOptions: LayoutOptions.START,
                 inputTransparent: true,
@@ -448,6 +470,25 @@ var getEquationOverlay = () =>
                 [
                     switcherFrame
                 ]
+            }),
+
+            ui.createImage({
+                useTint: false,
+                source: ImageSource.ARROW_90,
+                widthRequest: getImageSize(ui.screenWidth),
+                heightRequest: getImageSize(ui.screenWidth),
+                aspect: Aspect.ASPECT_FILL,
+                margin: new Thickness(0,18,10,0),
+                onTouched: (e) => {
+                if (e.type.isReleased()) {
+                    createMilestoneMenu().show();
+                }
+                },
+                isVisible: true,
+                row: 0,
+                column: 2,
+                horizontalOptions: LayoutOptions.END,
+                verticalOptions: LayoutOptions.START,
             }),
         ]
     });
@@ -484,6 +525,85 @@ var createSwitcherMenu = () => {
                         switchMode(),
                         menu.hide()
                     }
+                })
+            ]
+        })
+    })
+
+    return menu;
+}
+
+var createMilestoneUpgradeUI = () => {
+    return ui.createStackLayout({
+        orientation: StackOrientation.HORIZONTAL,
+        horizontalOptions: LayoutOptions.START_AND_EXPAND,
+        margin: new Thickness(0,2,0,0),
+        children: [
+            ui.createImage({
+                useTint: false,
+                opacity: 0.5,
+                source: ImageSource.REFUND,
+                widthRequest: getImageSize(ui.screenWidth),
+                heightRequest: getImageSize(ui.screenWidth),
+                aspect: Aspect.ASPECT_FILL,
+                margin: new Thickness(0,0,0,0),
+                onTouched: (e) => {
+                if (e.type.isReleased()) {
+                    log("refund");
+                }
+                },
+                isVisible: true,
+                horizontalOptions: LayoutOptions.END,
+                verticalOptions: LayoutOptions.CENTER,
+            }),
+            ui.createFrame({
+                horizontalOptions: LayoutOptions.FILL_AND_EXPAND,
+                verticalOptions: LayoutOptions.FILL_AND_EXPAND,
+                widthRequest: 2000,
+                heightRequest: Math.round(ui.screenHeight / 13),
+                content:
+                ui.createLatexLabel({
+                    opacity: 0.8,
+                    margin: new Thickness(8,3,0,0),
+                    text: Utils.getMath("x = \\text{dummy}"),
+                    verticalOptions: LayoutOptions.CENTER
+                })
+            })
+            
+        ]
+    })
+}
+
+var createMilestoneMenu = () => {
+    let menu = ui.createPopup({
+        title: "Milestones",
+        content: ui.createStackLayout({
+            children: [
+                ui.createLatexLabel({
+                    margin: new Thickness(0, 0, 0, 6),
+                    text: Utils.getMath("T = f(\\tau, \\max{h})"),
+                    horizontalTextAlignment: TextAlignment.CENTER,
+                    verticalTextAlignment: TextAlignment.CENTER
+                }),
+                ui.createLatexLabel({
+                    margin: new Thickness(0, 0, 0, 6),
+                    text: Utils.getMath("T = 0"),
+                    horizontalTextAlignment: TextAlignment.CENTER,
+                    verticalTextAlignment: TextAlignment.CENTER
+                }),
+                ui.createLatexLabel({
+                    margin: new Thickness(0, 0, 0, 6),
+                    text: Localization.format(Localization.get("PublicationPopupMileDesc"), Utils.getMath("T=10")),
+                    horizontalTextAlignment: TextAlignment.CENTER,
+                    verticalTextAlignment: TextAlignment.CENTER
+                }),
+                ui.createScrollView({
+                    content: ui.createStackLayout({
+                        children: [
+                            createMilestoneUpgradeUI(),
+                            createMilestoneUpgradeUI()
+                        ]
+                    })
                 })
             ]
         })
