@@ -1,7 +1,9 @@
 import { BigNumber, parseBigNumber } from '../api/BigNumber';
 import { theory, QuaternaryEntry } from "../api/Theory";
 import { Localization } from "../api/Localization";
+import { Currency } from '../api/Currency';
 import { ExponentialCost, FirstFreeCost, FreeCost } from '../api/Costs';
+import { Upgrade } from '../api/Upgrades';
 import { Utils } from '../api/Utils';
 import { log } from 'winjs';
 import { ui } from '../api/ui/UI';
@@ -80,19 +82,42 @@ const PHI = BigNumber.from((1 + Math.sqrt(5))/2);
 const ZERO = BigNumber.ZERO;
 const ONE = BigNumber.ONE;
 
-var alphaMode = false;
+var alphaMode = true;
 
 let maxh = ZERO;
 
 // Currencies
+/** @type {Currency} */
 var currencyRho;
+/** @type {Currency} */
 var currencyAlpha;
 
 // Upgrades
-var a0, a1, a2;
-var b0, b1;
-var a0a, a1a, a2a;
-var b0a, b1a;
+/** @type {Upgrade} */
+var a0;
+/** @type {Upgrade} */
+var a1;
+/** @type {Upgrade} */
+var a2;
+/** @type {Upgrade} */
+var b0;
+/** @type {Upgrade} */
+var b1;
+/** @type {Upgrade} */
+var a0a;
+/** @type {Upgrade} */
+var a1a;
+/** @type {Upgrade} */
+var a2a;
+/** @type {Upgrade} */
+var b0a;
+/** @type {Upgrade} */
+var b1a;
+
+// Milestones
+
+/** @type {CustomMilestoneUpgrade} */
+var rhoUnlock;
 
 // UI
 var rhodot = ZERO;
@@ -142,6 +167,48 @@ var getTau = () => currencyRho.value.pow(rhoExponent) * maxh.pow(maxhExponent);
 
 ////////
 // Utils
+
+class CustomMilestoneUpgrade {
+    /**
+     * @param {Number} id 
+     * @param {Number} maxLevel
+     */
+    constructor(id, maxLevel) {
+        this.innerUpgrade = theory.createPermanentUpgrade(id + 100, currencyRho, new FreeCost)
+        this.innerUpgrade.isAvailable = false;
+        this.isAvailable = true;
+        this.maxLevel = maxLevel;
+        /** @type {function(void):void} */
+        this.boughtOrRefunded = () => {};
+    }
+
+    get getDescription() { return this.innerUpgrade.getDescription }
+    set getDescription(value) { this.innerUpgrade.getDescription = value }
+
+    get getInfo() { return this.innerUpgrade.getInfo }
+    set getInfo(value) { this.innerUpgrade.getInfo = value }
+
+    get canBeRefunded() { return (amount) => (this.innerUpgrade.canBeRefunded(amount) && this.innerUpgrade.level > 0) }
+    set canBeRefunded(value) { this.innerUpgrade.canBeRefunded = value }
+
+    get level() { return this.innerUpgrade.level }
+
+    get maxLevel() { return this.innerUpgrade.maxLevel }
+    set maxLevel(value) { this.innerUpgrade.maxLevel = value }
+
+    buy() {
+        if (this.level < this.maxLevel && this.isAvailable) {
+            this.innerUpgrade.level += 1; 
+            this.boughtOrRefunded();
+        }
+    }
+    refund() {
+        if (this.level > 0 && this.canBeRefunded(1)) {
+            this.innerUpgrade.level -= 1; 
+            this.boughtOrRefunded();
+        }
+    }
+}
 
 /**
  * Returns a formatted time string
@@ -324,6 +391,10 @@ var init = () => {
     ///////////////////////
     //// Milestone Upgrades
 
+    {
+        rhoUnlock = new CustomMilestoneUpgrade(0, 1);
+        rhoUnlock.getDescription = (_) => "Unlock $\\rho$";
+    }
     
     updateAvailability();
 }
@@ -554,13 +625,21 @@ var createSwitcherMenu = () => {
     return menu;
 }
 
-var createMilestoneUpgradeUI = () => {
+/**
+ * Creates the UI for a milestone upgrade
+ * @param {CustomMilestoneUpgrade} milestone 
+ * @returns 
+ */
+var createMilestoneUpgradeUI = (milestone) => {
+    let refund_button_pressed = false;
     let refund_button_triggerable = true;
     let frame_triggerable = true;
 
+    let isMilestoneBuyable = () => milestone.level < milestone.maxLevel;
+
     let refundButton = ui.createImage({
         useTint: false,
-        opacity: 0.5,
+        opacity: () => (milestone.canBeRefunded(1) && !refund_button_pressed) ? 0.5 : 0.1,
         source: ImageSource.REFUND,
         widthRequest: getImageSize(ui.screenWidth),
         heightRequest: getImageSize(ui.screenWidth),
@@ -573,17 +652,20 @@ var createMilestoneUpgradeUI = () => {
 
     refundButton.onTouched = (e) =>
     {
+        if(!milestone.canBeRefunded(1)) {
+            return;
+        }
         if(e.type == TouchType.PRESSED)
         {
-            refundButton.opacity = 0.2;
+            refund_button_pressed = true;
         }
         else if(e.type.isReleased())
         {
-            refundButton.opacity = 0.5;
+            refund_button_pressed = false;
             if(refund_button_triggerable)
             {
                 Sound.playClick();
-                log("Upgrade refunded");
+                milestone.refund();
             }
             else
                 refund_button_triggerable = true;
@@ -591,7 +673,7 @@ var createMilestoneUpgradeUI = () => {
         else if(e.type == TouchType.MOVED && (e.x < 0 || e.y < 0 ||
         e.x > refundButton.width || e.y > refundButton.height))
         {
-            refundButton.opacity = 0.2;
+            refund_button_pressed = true;
             refund_button_triggerable = false;
         }
     };
@@ -607,18 +689,18 @@ var createMilestoneUpgradeUI = () => {
             cascadeInputTransparent: true,
             children: [
                 ui.createLatexLabel({
-                    opacity: 0.8,
+                    opacity: () => isMilestoneBuyable() ? 1 : 0.5,
                     margin: new Thickness(8,3,0,0),
-                    text: Utils.getMath("x = \\text{dummy}"),
+                    text: () => milestone.getDescription(1),
                     verticalOptions: LayoutOptions.CENTER,
                     row: 0,
                     column: 0,
                 }),
                 ui.createLatexLabel({
-                    opacity: 0.8,
+                    opacity: () => isMilestoneBuyable() ? 1 : 0.5,
                     fontSize: 11,
                     margin: new Thickness(0,0,8,8),
-                    text: Utils.getMath("0/0"),
+                    text: () => Utils.getMath(`${milestone.level}/${milestone.maxLevel}`),
                     verticalOptions: LayoutOptions.END,
                     row: 0,
                     column: 1,
@@ -629,6 +711,9 @@ var createMilestoneUpgradeUI = () => {
 
     frame.onTouched = (e) =>
     {
+        if (!isMilestoneBuyable()) {
+            return;
+        }
         if(e.type == TouchType.PRESSED)
         {
             frame.opacity = 0.4;
@@ -639,7 +724,7 @@ var createMilestoneUpgradeUI = () => {
             if(frame_triggerable)
             {
                 Sound.playClick();
-                log("Upgrade bought");
+                milestone.buy();
             }
             else
                 frame_triggerable = true;
@@ -656,6 +741,7 @@ var createMilestoneUpgradeUI = () => {
         orientation: StackOrientation.HORIZONTAL,
         horizontalOptions: LayoutOptions.START_AND_EXPAND,
         margin: new Thickness(0,2,0,0),
+        isVisible: () => milestone.isAvailable,
         children: [
             refundButton,
             frame
@@ -696,8 +782,7 @@ var createMilestoneMenu = () => {
                 ui.createScrollView({
                     content: ui.createStackLayout({
                         children: [
-                            createMilestoneUpgradeUI(),
-                            createMilestoneUpgradeUI()
+                            createMilestoneUpgradeUI(rhoUnlock),
                         ]
                     })
                 })
