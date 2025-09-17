@@ -74,6 +74,13 @@ let getLoc = (name, lang = menuLang) =>
     return `String missing: ${lang}.${name}`;
 }
 
+/**
+ * Applies BigNumber.from to all elements in the array
+ * @param {(number | string)[]} arr 
+ * @returns {BigNumber[]}
+ */
+var bigNumArray = (arr) => arr.map((val) => BigNumber.from(val));
+
 ///////////////
 // Declarations
 
@@ -125,6 +132,8 @@ var milestoneArray = [];
 /** @type {CustomMilestoneUpgrade} */
 var hTermMs;
 /** @type {CustomMilestoneUpgrade} */
+var b0baseMs;
+/** @type {CustomMilestoneUpgrade} */
 var rhoUnlock;
 
 // UI
@@ -145,16 +154,17 @@ const pubMultExp = 0.1;
 const rhoExponent = 0.2;
 const maxhExponent = 0.2;
 
-const permaCosts = [
+const permaCosts = bigNumArray([
     1e8,
     1e5,
     1e5
-]
+]);
 
-const milestoneCosts = [
+const milestoneCosts = bigNumArray([
     '1e15',
-    '2e15'
-].map((v) => BigNumber.from(v));
+    '2e15',
+    '2e16'
+]);
 
 const milestoneCount = milestoneCosts.length;
 
@@ -172,7 +182,8 @@ var getA2 = (level) => BigNumber.TWO.pow(level);
 
 const b0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const b0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-var getB0 = (level) => BigNumber.TWO.pow(level) - ONE;
+const b0bases = [1.2, 1.4];
+var getB0 = (level) => BigNumber.from(b0bases[b0baseMs.level]).pow(level) - ONE;
 
 const b1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const b1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
@@ -182,7 +193,7 @@ var getPublicationMultiplier = (tau) => tau.pow(pubMultExp);
 
 var getPublicationMultiplierFormula = (symbol) => `{${symbol}}^{${pubMultExp}}`;
 
-var getTau = () => currencyRho.value.pow(rhoExponent) * maxh.pow(maxhExponent);
+var getTau = () => (rhoUnlock.level > 0 ? currencyRho.value.pow(rhoExponent) : ONE) * maxh.pow(maxhExponent);
 
 var getMilestoneThreshold = () => theory.tau * maxh;
 
@@ -190,6 +201,13 @@ var getMilestoneThreshold = () => theory.tau * maxh;
 
 ////////
 // Utils
+
+/**
+ * Round `num` to 5 decimal places
+ * @param {Number} num 
+ * @returns {Number}
+ */
+var r5 = (num) => Math.round(num * 10000) / 10000;
 
 class CustomMilestoneUpgrade {
     /**
@@ -348,7 +366,7 @@ var init = () => {
         a0.getDescription = (_) => Utils.getMath(getDesc(a0.level));
         a0.getInfo = (amount) => Utils.getMathTo(getInfo(a0.level), getInfo(a0.level + amount));
 
-        a0a = theory.createUpgrade(11, currencyAlpha, a0aCost);
+        a0a = theory.createUpgrade(21, currencyAlpha, a0aCost);
         a0a.getDescription = (_) => Utils.getMath(getDesc(a0a.level));
         a0a.getInfo = (amount) => Utils.getMathTo(getInfo(a0a.level), getInfo(a0a.level + amount));
     }
@@ -362,7 +380,7 @@ var init = () => {
         a1.getInfo = (amount) => Utils.getMathTo(getInfo(a1.level), getInfo(a1.level + amount));
 
         
-        a1a = theory.createUpgrade(12, currencyAlpha, a1aCost);
+        a1a = theory.createUpgrade(22, currencyAlpha, a1aCost);
         a1a.getDescription = (_) => Utils.getMath(getDesc(a1a.level));
         a1a.getInfo = (amount) => Utils.getMathTo(getInfo(a1a.level), getInfo(a1a.level + amount));
     }
@@ -376,20 +394,20 @@ var init = () => {
         a2.getInfo = (amount) => Utils.getMathTo(getInfo(a2.level), getInfo(a2.level + amount));
 
         
-        a2a = theory.createUpgrade(13, currencyAlpha, a2aCost);
+        a2a = theory.createUpgrade(23, currencyAlpha, a2aCost);
         a2a.getDescription = (_) => Utils.getMath(getDesc(a2a.level));
         a2a.getInfo = (amount) => Utils.getMathTo(getInfo(a2a.level), getInfo(a2a.level + amount));
     }
 
     {
-        let getDesc = (level) => `b_0=2^{${level}}-1`;
+        let getDesc = (level) => `b_0=${b0bases[b0baseMs.level]}^{${level}}-1`;
         let getInfo = (level) => `b_0=${getB0(level).toString(0)}`;
 
-        b0 = theory.createUpgrade(4, currencyRho, b0Cost);
+        b0 = theory.createUpgrade(11, currencyRho, b0Cost);
         b0.getDescription = (_) => Utils.getMath(getDesc(b0.level));
         b0.getInfo = (amount) => Utils.getMathTo(getInfo(b0.level), getInfo(b0.level + amount));
         
-        b0a = theory.createUpgrade(14, currencyAlpha, b0aCost);
+        b0a = theory.createUpgrade(31, currencyAlpha, b0aCost);
         b0a.getDescription = (_) => Utils.getMath(getDesc(b0a.level));
         b0a.getInfo = (amount) => Utils.getMathTo(getInfo(b0a.level), getInfo(b0a.level + amount));
     }
@@ -398,11 +416,11 @@ var init = () => {
         let getDesc = (level) => `b_1=2^{${level}}-1`;
         let getInfo = (level) => `b_1=${getB1(level).toString(0)}`;
 
-        b1 = theory.createUpgrade(5, currencyRho, b1Cost);
+        b1 = theory.createUpgrade(12, currencyRho, b1Cost);
         b1.getDescription = (_) => Utils.getMath(getDesc(b1.level));
         b1.getInfo = (amount) => Utils.getMathTo(getInfo(b1.level), getInfo(b1.level + amount));
 
-        b1a = theory.createUpgrade(15, currencyAlpha, b1aCost);
+        b1a = theory.createUpgrade(32, currencyAlpha, b1aCost);
         b1a.getDescription = (_) => Utils.getMath(getDesc(b1a.level));
         b1a.getInfo = (amount) => Utils.getMathTo(getInfo(b1a.level), getInfo(b1a.level + amount));
     }
@@ -410,8 +428,8 @@ var init = () => {
     /////////////////////
     // Permanent Upgrades
     theory.createPublicationUpgrade(0, currencyAlpha, permaCosts[0]);
-    //theory.createBuyAllUpgrade(1, currencyRho, permaCosts[1]);
-    //theory.createAutoBuyerUpgrade(2, currencyRho, permaCosts[2]);
+    //theory.createBuyAllUpgrade(1, currencyAlpha, permaCosts[1]);
+    //theory.createAutoBuyerUpgrade(2, currencyAlpha, permaCosts[2]);
 
     ///////////////////////
     //// Milestone Upgrades
@@ -424,12 +442,24 @@ var init = () => {
             theory.invalidateSecondaryEquation();
             updateAvailability();
         }
-        hTermMs.canBeRefunded = (_) => rhoUnlock.level === 0;
+        hTermMs.canBeRefunded = (_) => b0baseMs.level === 0;
     }
     {
-        rhoUnlock = new CustomMilestoneUpgrade(1, 1);
+        b0baseMs = new CustomMilestoneUpgrade(1, 1);
+        b0baseMs.getDescription = (_) => Localization.getUpgradeIncCustomDesc("b_0 \\text{ base}", `${
+            b0baseMs.level < b0baseMs.maxLevel ? r5(b0bases[b0baseMs.level + 1] - b0bases[b0baseMs.level]) : 0
+        }`)
+        b0baseMs.getInfo = (_) => "$b_0$ base: " + (b0baseMs.level < b0baseMs.maxLevel 
+            ? Utils.getMathTo(`${b0bases[b0baseMs.level]}`, `${b0bases[b0baseMs.level + 1]}`)
+            : Utils.getMath(`${b0bases[b0baseMs.level]}`));
+        b0baseMs.boughtOrRefunded = () => updateAvailability();
+        b0baseMs.canBeRefunded = (_) => rhoUnlock.level === 0;
+    }
+    {
+        rhoUnlock = new CustomMilestoneUpgrade(2, 1);
         rhoUnlock.getDescription = (_) => "Unlock $\\rho$";
         rhoUnlock.getInfo = (_) => "Unlock $\\rho$ and unlock the ability to swap the $k$ and $h$ in the integral";
+        rhoUnlock.canBeRefunded = (_) => alphaMode;
     }
 
     ///////////////////
@@ -460,7 +490,15 @@ var updateAvailability = () => {
     for (var v of [a0a,a1a,a2a,b0a,b1a]) {
         v.isAvailable = alphaMode;
     }
-    rhoUnlock.isAvailable = hTermMs.level > 0;
+
+    a2.isAvailable &&= false;
+    a2a.isAvailable &&= false;
+
+    b1.isAvailable &&= hTermMs.level > 0;
+    b1a.isAvailable &&= hTermMs.level > 0;
+
+    b0baseMs.isAvailable = hTermMs.level > 0;
+    rhoUnlock.isAvailable = b0baseMs.level > 0;
 }
 
 var tick = (elapsedTime, multiplier) => {
@@ -474,8 +512,10 @@ var tick = (elapsedTime, multiplier) => {
     const vb0 = getB0((alphaMode ? b0a : b0).level);
     const vb1 = getB1((alphaMode ? b1a : b1).level);
 
-    const k = [va0, va1, va2];
-    const h = [vb0, vb1];
+    let k = [va0, va1];
+
+    let h = [vb0];
+    if (hTermMs.level > 0) h.push(vb1);
 
     cur_h = evalp(h, PHI);
     maxh = maxh.max(cur_h);
@@ -627,6 +667,7 @@ var getEquationOverlay = () =>
             ui.createGrid
             ({
                 row: 0, column: 0,
+                isVisible: () => rhoUnlock.level > 0,
                 margin: new Thickness(0,0,2,0),
                 horizontalOptions: LayoutOptions.START,
                 verticalOptions: LayoutOptions.START,
@@ -766,7 +807,7 @@ var createMilestoneUpgradeUI = (milestone) => {
             children: [
                 ui.createLatexLabel({
                     opacity: () => isMilestoneBuyable() ? 1 : 0.5,
-                    margin: new Thickness(8,3,0,0),
+                    margin: new Thickness(10,3,0,0),
                     text: () => milestoneInfoPressed ? milestone.getInfo(1) : milestone.getDescription(1),
                     verticalOptions: LayoutOptions.CENTER,
                     row: 0,
@@ -910,6 +951,7 @@ var createMilestoneMenu = () => {
                         infoButton
                     ]
                 }),
+                // Milestone list
                 ui.createScrollView({
                     content: ui.createStackLayout({
                         children: [
@@ -954,7 +996,12 @@ var getSecondaryEquation = () => {
     theory.secondaryEquationHeight = 100;
     theory.secondaryEquationScale = 1.25;
 
-    result += `k(x) = {a_2}x^2 + {a_1}x + a_0\\\\h(x) = {b_1}x + b_0\\\\`;
+    let k = "{a_1}x + a_0";
+
+    let h = "b_0";
+    if (hTermMs.level > 0) h = "{b_1}x + " + h;
+
+    result += `k(x) = ${k}\\\\h(x) = ${h}\\\\`;
     if (alphaMode) {
         result += `\\dot{\\alpha} = ${alphadot.toString()}`;
     }
@@ -962,7 +1009,8 @@ var getSecondaryEquation = () => {
         result += `\\dot{\\rho} = ${rhodot.toString()}`;
     }
 
-    result += `\\\\${theory.latexSymbol}=\\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}}`;
+    if (rhoUnlock.level === 0) result += `\\\\${theory.latexSymbol}=\\max{(h(\\phi))^{${maxhExponent}}}`
+    else result += `\\\\${theory.latexSymbol}=\\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}}`;
 
     return result;
 }
