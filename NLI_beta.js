@@ -4,8 +4,7 @@ import { Localization } from "../api/Localization";
 import { Currency } from '../api/Currency';
 import { ExponentialCost, FirstFreeCost, FreeCost } from '../api/Costs';
 import { Upgrade } from '../api/Upgrades';
-import { Utils } from '../api/Utils';
-import { log } from 'winjs';
+import { Utils, log } from '../api/Utils';
 import { ui } from '../api/ui/UI';
 import { Aspect } from '../api/ui/properties/Aspect';
 import { Color } from '../api/ui/properties/Color';
@@ -86,6 +85,10 @@ var alphaMode = true;
 
 let maxh = ZERO;
 
+let milestonesAvailable = 0;
+let totalMilestonePoints = 0;
+let maxMilestoneThreshold = ZERO;
+
 // Currencies
 /** @type {Currency} */
 var currencyRho;
@@ -116,6 +119,11 @@ var b1a;
 
 // Milestones
 
+/** @type {CustomMilestoneUpgrade[]} */
+var milestoneArray = [];
+
+/** @type {CustomMilestoneUpgrade} */
+var hTermMs;
 /** @type {CustomMilestoneUpgrade} */
 var rhoUnlock;
 
@@ -123,6 +131,12 @@ var rhoUnlock;
 var rhodot = ZERO;
 var alphadot = ZERO;
 var cur_h = ZERO;
+
+var milestoneInfoPressed = false;
+
+// Debug
+/** @type {Upgrade} */
+var debugResetMilestonesUpgrade;
 
 //////////
 // Balance
@@ -136,6 +150,13 @@ const permaCosts = [
     1e5,
     1e5
 ]
+
+const milestoneCosts = [
+    '1e15',
+    '2e15'
+].map((v) => BigNumber.from(v));
+
+const milestoneCount = milestoneCosts.length;
 
 const a0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
@@ -163,6 +184,8 @@ var getPublicationMultiplierFormula = (symbol) => `{${symbol}}^{${pubMultExp}}`;
 
 var getTau = () => currencyRho.value.pow(rhoExponent) * maxh.pow(maxhExponent);
 
+var getMilestoneThreshold = () => theory.tau * maxh;
+
 //var getCurrencyFromTau = (tau) => [value, symbol];
 
 ////////
@@ -178,8 +201,9 @@ class CustomMilestoneUpgrade {
         this.innerUpgrade.isAvailable = false;
         this.isAvailable = true;
         this.maxLevel = maxLevel;
-        /** @type {function(void):void} */
+        /** @type {function():void} */
         this.boughtOrRefunded = () => {};
+        milestoneArray.push(this);
     }
 
     get getDescription() { return this.innerUpgrade.getDescription }
@@ -192,19 +216,20 @@ class CustomMilestoneUpgrade {
     set canBeRefunded(value) { this.innerUpgrade.canBeRefunded = value }
 
     get level() { return this.innerUpgrade.level }
+    set level(value) { this.innerUpgrade.level = value }
 
     get maxLevel() { return this.innerUpgrade.maxLevel }
     set maxLevel(value) { this.innerUpgrade.maxLevel = value }
 
     buy() {
         if (this.level < this.maxLevel && this.isAvailable) {
-            this.innerUpgrade.level += 1; 
+            this.level += 1; 
             this.boughtOrRefunded();
         }
     }
     refund() {
         if (this.level > 0 && this.canBeRefunded(1)) {
-            this.innerUpgrade.level -= 1; 
+            this.level -= 1; 
             this.boughtOrRefunded();
         }
     }
@@ -384,7 +409,7 @@ var init = () => {
 
     /////////////////////
     // Permanent Upgrades
-    theory.createPublicationUpgrade(0, currencyRho, permaCosts[0]);
+    theory.createPublicationUpgrade(0, currencyAlpha, permaCosts[0]);
     //theory.createBuyAllUpgrade(1, currencyRho, permaCosts[1]);
     //theory.createAutoBuyerUpgrade(2, currencyRho, permaCosts[2]);
 
@@ -392,8 +417,36 @@ var init = () => {
     //// Milestone Upgrades
 
     {
-        rhoUnlock = new CustomMilestoneUpgrade(0, 1);
+        hTermMs = new CustomMilestoneUpgrade(0, 1);
+        hTermMs.getDescription = (_) => Localization.getUpgradeAddTermDesc("b_1");
+        hTermMs.getInfo = (_) => Localization.getUpgradeAddTermInfo("b_1");
+        hTermMs.boughtOrRefunded = () => {
+            theory.invalidateSecondaryEquation();
+            updateAvailability();
+        }
+        hTermMs.canBeRefunded = (_) => rhoUnlock.level === 0;
+    }
+    {
+        rhoUnlock = new CustomMilestoneUpgrade(1, 1);
         rhoUnlock.getDescription = (_) => "Unlock $\\rho$";
+        rhoUnlock.getInfo = (_) => "Unlock $\\rho$ and unlock the ability to swap the $k$ and $h$ in the integral";
+    }
+
+    ///////////////////
+    //// Debug Upgrades
+
+    {
+        debugResetMilestonesUpgrade = theory.createPermanentUpgrade(500, currencyRho, new FreeCost);
+        debugResetMilestonesUpgrade.description = "[Debug] reset milestones";
+        debugResetMilestonesUpgrade.boughtOrRefunded = (_) => {
+            debugResetMilestonesUpgrade.level = 0;
+            for (let msUpgrade of milestoneArray) {
+                msUpgrade.level = 0;
+                msUpgrade.boughtOrRefunded();
+                milestonesAvailable = 0;
+                totalMilestonePoints = 0;
+            }
+        }
     }
     
     updateAvailability();
@@ -407,6 +460,7 @@ var updateAvailability = () => {
     for (var v of [a0a,a1a,a2a,b0a,b1a]) {
         v.isAvailable = alphaMode;
     }
+    rhoUnlock.isAvailable = hTermMs.level > 0;
 }
 
 var tick = (elapsedTime, multiplier) => {
@@ -436,6 +490,13 @@ var tick = (elapsedTime, multiplier) => {
         rhodot = integral * bonus * multiplier;
         currencyRho.value += rhodot * elapsedTime;
     }
+
+    if (totalMilestonePoints < milestoneCount 
+        && getMilestoneThreshold() >= milestoneCosts[totalMilestonePoints]
+    ) {
+        totalMilestonePoints++;
+        milestonesAvailable++;
+    }
     
     theory.invalidateSecondaryEquation();
     theory.invalidateTertiaryEquation();
@@ -455,16 +516,29 @@ var postPublish = () => {
 var getInternalState = () => JSON.stringify({
     version,
     alphaMode,
-    maxh: maxh.toBase64String()
+    milestonesAvailable,
+    totalMilestonePoints,
+    maxh: maxh.toBase64String(),
+    maxMilestoneThreshold: maxMilestoneThreshold.toBase64String()
 })
 
 var setInternalState = (stateStr) => {
     if (!stateStr) return;
 
+    /**
+     * @param {String} str 
+     * @param {BigNumber} defaultValue
+     */
+    const parseBigNumBSF = (str, defaultValue) => (str ? BigNumber.fromBase64String(str) : defaultValue);
+
     const state = JSON.parse(stateStr);
 
     alphaMode = state.alphaMode ?? false;
-    maxh = BigNumber.fromBase64String(state.maxh ?? ZERO.toBase64String());
+    milestonesAvailable = state.milestonesAvailable ?? 0;
+    totalMilestonePoints = state.totalMilestonePoints ?? 0;
+    maxh = parseBigNumBSF(state.maxh, ZERO);
+    maxMilestoneThreshold = parseBigNumBSF(state.maxMilestoneThreshold, ZERO);
+
 }
 
 /////
@@ -573,6 +647,7 @@ var getEquationOverlay = () =>
                 margin: new Thickness(0,18,10,0),
                 onTouched: (e) => {
                 if (e.type.isReleased()) {
+                    milestoneInfoPressed = false;
                     createMilestoneMenu().show();
                 }
                 },
@@ -635,11 +710,11 @@ var createMilestoneUpgradeUI = (milestone) => {
     let refund_button_triggerable = true;
     let frame_triggerable = true;
 
-    let isMilestoneBuyable = () => milestone.level < milestone.maxLevel;
+    let isMilestoneBuyable = () => milestone.level < milestone.maxLevel && milestonesAvailable > 0;
 
     let refundButton = ui.createImage({
         useTint: false,
-        opacity: () => (milestone.canBeRefunded(1) && !refund_button_pressed) ? 0.5 : 0.1,
+        opacity: () => (milestone.canBeRefunded(1) && !refund_button_pressed) ? 0.5 : 0.2,
         source: ImageSource.REFUND,
         widthRequest: getImageSize(ui.screenWidth),
         heightRequest: getImageSize(ui.screenWidth),
@@ -666,6 +741,7 @@ var createMilestoneUpgradeUI = (milestone) => {
             {
                 Sound.playClick();
                 milestone.refund();
+                milestonesAvailable++;
             }
             else
                 refund_button_triggerable = true;
@@ -691,7 +767,7 @@ var createMilestoneUpgradeUI = (milestone) => {
                 ui.createLatexLabel({
                     opacity: () => isMilestoneBuyable() ? 1 : 0.5,
                     margin: new Thickness(8,3,0,0),
-                    text: () => milestone.getDescription(1),
+                    text: () => milestoneInfoPressed ? milestone.getInfo(1) : milestone.getDescription(1),
                     verticalOptions: LayoutOptions.CENTER,
                     row: 0,
                     column: 0,
@@ -725,6 +801,7 @@ var createMilestoneUpgradeUI = (milestone) => {
             {
                 Sound.playClick();
                 milestone.buy();
+                milestonesAvailable--;
             }
             else
                 frame_triggerable = true;
@@ -750,39 +827,93 @@ var createMilestoneUpgradeUI = (milestone) => {
 }
 
 var createMilestoneMenu = () => {
+    let info_button_pressed = false;
+
+    let infoButton = ui.createImage({
+        useTint: false,
+        opacity: () => info_button_pressed ? 0.5 : 1,
+        source: ImageSource.INFO,
+        widthRequest: getImageSize(ui.screenWidth),
+        heightRequest: getImageSize(ui.screenWidth),
+        aspect: Aspect.ASPECT_FILL,
+        margin: new Thickness(0,0,0,0),
+        isVisible: true,
+        horizontalOptions: LayoutOptions.END,
+        verticalOptions: LayoutOptions.CENTER,
+        column: 1
+    });
+
+    infoButton.onTouched = (e) =>
+    {
+        if(e.type == TouchType.PRESSED)
+        {
+            info_button_pressed = true;
+            milestoneInfoPressed = true;
+        }
+        else if(e.type.isReleased())
+        {
+            info_button_pressed = false;
+            milestoneInfoPressed = false;
+        }
+        else if(e.type == TouchType.MOVED && (e.x < 0 || e.y < 0 ||
+        e.x > infoButton.width || e.y > infoButton.height))
+        {
+            info_button_pressed = true;
+            milestoneInfoPressed = true;
+        }
+    };
+
     let menu = ui.createPopup({
         title: Localization.get("PublicationPopupMilestones"),
         content: ui.createStackLayout({
             children: [
+                // Threshold formula
                 ui.createLatexLabel({
                     margin: new Thickness(0, 0, 0, 6),
                     text: Utils.getMath("T = f(\\tau, \\max{h})"),
                     horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER
                 }),
+                // Current threshold
                 ui.createLatexLabel({
                     margin: new Thickness(0, 0, 0, 8),
-                    text: Utils.getMath("T = 0"),
+                    text: () => Utils.getMath(`T = ${getMilestoneThreshold()}`),
                     horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER
                 }),
+                // Next threshold cost
                 ui.createLatexLabel({
                     margin: new Thickness(0, 0, 0, 6),
-                    text: Localization.format(Localization.get("PublicationPopupMileDesc"), Utils.getMath("T=10")),
+                    text: () => totalMilestonePoints < milestoneCount 
+                        ? Localization.format(
+                            Localization.get("PublicationPopupMileDesc"), 
+                            Utils.getMath(`T = ${milestoneCosts[totalMilestonePoints]}`)
+                        )
+                        : Localization.get("PublicationPopupMileDone"),
                     horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER
                 }),
+                // Upgrades left
                 ui.createLatexLabel({
                     margin: new Thickness(0, 0, 0, 6),
                     fontSize: 12,
-                    text: Localization.format(Localization.get("PublicationPopupMileLeft"), 0),
+                    text: () => Localization.format(Localization.get("PublicationPopupMileLeft"), milestonesAvailable),
                     horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER
+                }),
+                // Info button
+                ui.createGrid({
+                    columnDefinitions: ["*", "auto", "*"],
+                    horizontalOptions: LayoutOptions.FILL_AND_EXPAND,
+                    widthRequest: ui.screenWidth,
+                    children: [
+                        infoButton
+                    ]
                 }),
                 ui.createScrollView({
                     content: ui.createStackLayout({
                         children: [
-                            createMilestoneUpgradeUI(rhoUnlock),
+                            ...milestoneArray.map((upg) => createMilestoneUpgradeUI(upg)),
                         ]
                     })
                 })
