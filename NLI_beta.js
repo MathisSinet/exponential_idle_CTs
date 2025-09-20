@@ -15,6 +15,7 @@ import { StackOrientation } from '../api/ui/properties/StackOrientation';
 import { TextAlignment } from '../api/ui/properties/TextAlignment';
 import { Thickness } from '../api/ui/properties/Thickness';
 import { TouchType } from '../api/ui/properties/TouchType';
+import { LatexLabel } from '../api/ui/LatexLabel';
 
 var id = "nli_beta";
 
@@ -161,9 +162,9 @@ const permaCosts = bigNumArray([
 ]);
 
 const milestoneCosts = bigNumArray([
-    '1e15',
-    '2e15',
-    '2e16'
+    '1e30',
+    '1e50',
+    '1e70'
 ]);
 
 const milestoneCount = milestoneCosts.length;
@@ -195,7 +196,7 @@ var getPublicationMultiplierFormula = (symbol) => `{${symbol}}^{${pubMultExp}}`;
 
 var getTau = () => (rhoUnlock.level > 0 ? currencyRho.value.pow(rhoExponent) : ONE) * maxh.pow(maxhExponent);
 
-var getMilestoneThreshold = () => theory.tau * maxh;
+var getMilestoneCostReduction = () => maxh + ONE;
 
 //var getCurrencyFromTau = (tau) => [value, symbol];
 
@@ -203,7 +204,7 @@ var getMilestoneThreshold = () => theory.tau * maxh;
 // Utils
 
 /**
- * Round `num` to 5 decimal places
+ * Rounds `num` to 5 decimal places
  * @param {Number} num 
  * @returns {Number}
  */
@@ -401,7 +402,7 @@ var init = () => {
 
     {
         let getDesc = (level) => `b_0=${b0bases[b0baseMs.level]}^{${level}}-1`;
-        let getInfo = (level) => `b_0=${getB0(level).toString(0)}`;
+        let getInfo = (level) => `b_0=${getB0(level).toString(2)}`;
 
         b0 = theory.createUpgrade(11, currencyRho, b0Cost);
         b0.getDescription = (_) => Utils.getMath(getDesc(b0.level));
@@ -532,7 +533,7 @@ var tick = (elapsedTime, multiplier) => {
     }
 
     if (totalMilestonePoints < milestoneCount 
-        && getMilestoneThreshold() >= milestoneCosts[totalMilestonePoints]
+        && theory.tau >= milestoneCosts[totalMilestonePoints] / getMilestoneCostReduction()
     ) {
         totalMilestonePoints++;
         milestonesAvailable++;
@@ -551,6 +552,7 @@ var postPublish = () => {
     alphadot = ZERO;
 
     theory.invalidateSecondaryEquation();
+    theory.invalidateTertiaryEquation();
 }
 
 var getInternalState = () => JSON.stringify({
@@ -578,7 +580,6 @@ var setInternalState = (stateStr) => {
     totalMilestonePoints = state.totalMilestonePoints ?? 0;
     maxh = parseBigNumBSF(state.maxh, ZERO);
     maxMilestoneThreshold = parseBigNumBSF(state.maxMilestoneThreshold, ZERO);
-
 }
 
 /////
@@ -600,8 +601,7 @@ var getImageSize = (width) => {
 
 var createSwitcherFrame = () => {
     let triggerable = true;
-    let fontSize = Math.min(ui.screenWidth / 13, ui.screenHeight / 18);
-    let targetWidth = 50;
+    let fontSize = 32;
 
     let label = ui.createLabel({
         margin: new Thickness(0, 0, 0, 0),
@@ -609,20 +609,20 @@ var createSwitcherFrame = () => {
         text: "⇌",
         textColor: Color.TEXT_MEDIUM,
         fontAttributes: FontAttributes.BOLD,
-        horizontalTextAlignment: TextAlignment.CENTER,
+        horizontalTextAlignment: TextAlignment.START,
         verticalTextAlignment: TextAlignment.END,
         fontSize: fontSize,
-        opacity: 0,
+        opacity: 1,
     })
 
-    let adjustmentDone = false;
-    label.onSizeChanged = () => {
-        if (!adjustmentDone && label.width > 0) {
-            label.fontSize = fontSize * targetWidth / label.width;
-            label.opacity = 1;
-            adjustmentDone = true;
-        }
-    };
+    //let adjustmentDone = false;
+    //label.onSizeChanged = () => {
+    //    if (!adjustmentDone && label.width > 0) {
+    //        label.fontSize = fontSize * targetWidth / label.width;
+    //        label.opacity = 1;
+    //        adjustmentDone = true;
+    //    }
+    //};
 
     label.onTouched = (e) =>
     {
@@ -656,6 +656,42 @@ const switcherFrame = createSwitcherFrame();
 
 var getEquationOverlay = () =>
 {
+    let switcherButtonContainer = ui.createGrid
+    ({
+        row: 0, column: 0,
+                isVisible: () => rhoUnlock.level > 0,
+        margin: new Thickness(0,0,2,0),
+        horizontalOptions: LayoutOptions.START,
+        verticalOptions: LayoutOptions.START,
+        inputTransparent: true,
+        cascadeInputTransparent: false,
+        //backgroundColor: Color.fromRgb(1,0,0),
+        children: [switcherFrame]
+    });
+
+    let milestoneMenuButton = ui.createImage({
+        row: 0, column: 2,
+        source: ImageSource.ARROW_90,
+        widthRequest: getImageSize(ui.screenWidth),
+        heightRequest: getImageSize(ui.screenWidth),
+        margin: new Thickness(0,18,10,0),
+        isVisible: true,
+        useTint: false,
+        aspect: Aspect.ASPECT_FILL,
+        horizontalOptions: LayoutOptions.END,
+        verticalOptions: LayoutOptions.START,
+        onTouched: (e) => {
+            if (e.type == TouchType.PRESSED) {
+                milestoneMenuButton.opacity = 0.4;
+            }
+            if (e.type.isReleased()) {
+                milestoneMenuButton.opacity = 1;
+                milestoneInfoPressed = false;
+                createMilestoneMenu().show();
+            }
+        },
+    });
+
     let result = ui.createGrid
     ({
         columnDefinitions: ["1*", "3*", "1*"],
@@ -664,40 +700,8 @@ var getEquationOverlay = () =>
         cascadeInputTransparent: false,
         children:
         [
-            ui.createGrid
-            ({
-                row: 0, column: 0,
-                isVisible: () => rhoUnlock.level > 0,
-                margin: new Thickness(0,0,2,0),
-                horizontalOptions: LayoutOptions.START,
-                verticalOptions: LayoutOptions.START,
-                inputTransparent: true,
-                cascadeInputTransparent: false,
-                children:
-                [
-                    switcherFrame
-                ]
-            }),
-
-            ui.createImage({
-                useTint: false,
-                source: ImageSource.ARROW_90,
-                widthRequest: getImageSize(ui.screenWidth),
-                heightRequest: getImageSize(ui.screenWidth),
-                aspect: Aspect.ASPECT_FILL,
-                margin: new Thickness(0,18,10,0),
-                onTouched: (e) => {
-                if (e.type.isReleased()) {
-                    milestoneInfoPressed = false;
-                    createMilestoneMenu().show();
-                }
-                },
-                isVisible: true,
-                row: 0,
-                column: 2,
-                horizontalOptions: LayoutOptions.END,
-                verticalOptions: LayoutOptions.START,
-            }),
+            switcherButtonContainer,
+            milestoneMenuButton,
         ]
     });
     return result;
@@ -908,27 +912,27 @@ var createMilestoneMenu = () => {
         title: Localization.get("PublicationPopupMilestones"),
         content: ui.createStackLayout({
             children: [
-                // Threshold formula
+                // Cost reduction formula
                 ui.createLatexLabel({
                     margin: new Thickness(0, 0, 0, 6),
-                    text: Utils.getMath("T = f(\\tau, \\max{h})"),
+                    text: Utils.getMath("\\text{Milestone cost reduction: } R = 1 + f(\\max{h(\\phi)})"),
                     horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER
                 }),
-                // Current threshold
+                // Current milestone reduction
                 ui.createLatexLabel({
                     margin: new Thickness(0, 0, 0, 8),
-                    text: () => Utils.getMath(`T = ${getMilestoneThreshold()}`),
+                    text: () => Utils.getMath(`R = ${getMilestoneCostReduction()}`),
                     horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER
                 }),
-                // Next threshold cost
+                // Next milestone cost
                 ui.createLatexLabel({
                     margin: new Thickness(0, 0, 0, 6),
                     text: () => totalMilestonePoints < milestoneCount 
                         ? Localization.format(
                             Localization.get("PublicationPopupMileDesc"), 
-                            Utils.getMath(`T = ${milestoneCosts[totalMilestonePoints]}`)
+                            Utils.getMath(`${milestoneCosts[totalMilestonePoints] / getMilestoneCostReduction()}${theory.latexSymbol}`)
                         )
                         : Localization.get("PublicationPopupMileDone"),
                     horizontalTextAlignment: TextAlignment.CENTER,
@@ -947,16 +951,12 @@ var createMilestoneMenu = () => {
                     columnDefinitions: ["*", "auto", "*"],
                     horizontalOptions: LayoutOptions.FILL_AND_EXPAND,
                     widthRequest: ui.screenWidth,
-                    children: [
-                        infoButton
-                    ]
+                    children: [infoButton]
                 }),
                 // Milestone list
                 ui.createScrollView({
                     content: ui.createStackLayout({
-                        children: [
-                            ...milestoneArray.map((upg) => createMilestoneUpgradeUI(upg)),
-                        ]
+                        children: [...milestoneArray.map((upg) => createMilestoneUpgradeUI(upg))]
                     })
                 })
             ]
