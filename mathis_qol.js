@@ -24,7 +24,7 @@ var getR9 = () => (game.sigmaTotal / 20) ** game.researchUpgrades[8].level;
 
 var quaternaryEntries = [];
 
-function formatBigNumberPrecision(number, precision = 4) {
+function formatBigNumberPrecision(number, precision = 5) {
     if (number < BigNumber.from(1e6)) {
       return number.toString();
     }
