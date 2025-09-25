@@ -1,9 +1,9 @@
-﻿import { ExponentialCost, FreeCost, LinearCost } from "./api/Costs";
-import { Localization } from "./api/Localization";
+﻿import { ExponentialCost, FreeCost, LinearCost } from "../api/Costs";
+import { Localization } from "../api/Localization";
 import { BigNumber } from "./api/BigNumber";
-import { theory, QuaternaryEntry } from "./api/Theory";
-import { log, Utils } from "./api/Utils";
-import { game } from "./api/Game"
+import { theory, QuaternaryEntry } from "../api/Theory";
+import { log, Utils } from "../api/Utils";
+import { game } from "../api/Game"
 
 var id = "mathis_qol";
 var name = "Mathis QoL";
@@ -11,6 +11,8 @@ var description = "QoL by Mathis S."
 ;
 var authors = "Mathis S.";
 var version = 1;
+
+var stage = 0;
 
 var g_elapsedTime = 0;
 var g_multiplier = 0;
@@ -21,6 +23,16 @@ var publicationMultiplier = theory => theory.nextPublicationMultiplier / theory.
 var getR9 = () => (game.sigmaTotal / 20) ** game.researchUpgrades[8].level;
 
 var quaternaryEntries = [];
+
+function formatBigNumberPrecision(number, precision = 4) {
+    if (number < BigNumber.from(1e6)) {
+      return number.toString();
+    }
+    const log10 = number.log10().toNumber();
+    const exp = Math.floor(log10);
+    const dec = 10**(log10 - exp);
+    return `${dec.toPrecision(precision)}e${exp}`;
+  }
 
 var init = () => {
 
@@ -46,39 +58,61 @@ var getT6r = (theory) => {
 }
 
 var getPrimaryEquation = () => {
-    theory.primaryEquationHeight = 80;
-    theory.primaryEquationScale = 1;
     let result = "";
 
-    result += `\\text{Mathis QoL V0.1}\\\\`
+    if (stage == 0) { 
+        theory.primaryEquationHeight = 80;
+        theory.primaryEquationScale = 1;
+        result += `\\text{Mathis QoL V0.1}\\\\`
+    }
+    else {
+        theory.primaryEquationHeight = 1;
+    }
 
     return result;
 }
 
 var getSecondaryEquation = () => {
     let result = "";
-    if (game.activeTheory.id == 4){ // t5
-        let theory = game.activeTheory;
-        let upgrades = theory.upgrades;
-        let c2 = BigNumber.TWO.pow(upgrades[3].level);
-        let c3 = BigNumber.TWO.pow(upgrades[4].level*1.1);
-        let qmax = c2 * c3;
-        let qflip = qmax * BigNumber.from(2/3)
-        result += "q \\text{ flip point:}" + qflip.toString() + "\\\\";
-        result += "q \\text{ cap:}" + qmax.toString();
+    if (stage == 0) {
+        theory.secondaryEquationHeight = 30;
+        if (game.activeTheory.id == 4){ // t5
+            let theory = game.activeTheory;
+            let upgrades = theory.upgrades;
+            let c2 = BigNumber.TWO.pow(upgrades[3].level);
+            let c3 = BigNumber.TWO.pow(upgrades[4].level*1.1);
+            let qmax = c2 * c3;
+            let qflip = qmax * BigNumber.from(2/3)
+            result += "q \\text{ flip point:}" + qflip.toString() + "\\\\";
+            result += "q \\text{ cap:}" + qmax.toString();
+        }
+        else if (game.activeTheory.id == 5) // t6
+        {
+            const theory = game.activeTheory;
+            const upgrades = theory.upgrades;
+            const c5 = BigNumber.TWO.pow(upgrades[8].level);
+            const r = getT6r(theory);
+            const c1 = getStepwise(upgrades[4].level, 2, 10, 1, 1.15);
+            const c2 = BigNumber.TWO.pow(upgrades[5].level);
+    
+            const ratio = (c5 * r / BigNumber.TWO) / (c1 * c2);
+    
+            result += "\\text{term ratio:}" + ratio.toString(3);
+        }
     }
-    else if (game.activeTheory.id == 5) // t6
-    {
-        let theory = game.activeTheory;
-        let upgrades = theory.upgrades;
-        let c5 = BigNumber.TWO.pow(upgrades[8].level);
-        let r = getT6r(theory);
-        let c1 = getStepwise(upgrades[4].level, 2, 10, 1, 1.15);
-        let c2 = BigNumber.TWO.pow(upgrades[5].level);
+    else {
+        theory.secondaryEquationHeight = 200;
+        const th = game.activeTheory;
+        const currencies = th.currencies;
+        const upgrades = th.upgrades;
 
-        let ratio = (c5 * r / BigNumber.TWO) / (c1 * c2);
-
-        result += "\\text{term ratio:}" + ratio.toString(3);
+        result += `${th.latexSymbol} = ${formatBigNumberPrecision(th.tau)}`;
+        for (let i = 0; i < currencies.length; i++) {
+            result += `\\\\ ${currencies[i].symbol} = ${formatBigNumberPrecision(currencies[i].value)}`;
+        }
+        for (let j = 0; j < upgrades.length; j++) {
+            result += `\\\\ ${upgrades[j].description.split('(')[1].split("=")[0]} \\text{cost} = ${formatBigNumberPrecision(upgrades[j].cost.getCost(upgrades[j].level))}`;
+        }
     }
 
     return result;
@@ -218,6 +252,21 @@ var getQuaternaryEntries = () => {
     return quaternaryEntries;
 }
 
+var canGoToPreviousStage = () => stage > 0;
+var goToPreviousStage = () => {
+  stage--;
+  theory.invalidatePrimaryEquation();
+  theory.invalidateSecondaryEquation();
+  //theory.invalidateTertiaryEquation();
+};
+var canGoToNextStage = () => stage < 1;
+var goToNextStage = () => {
+  stage++;
+  theory.invalidatePrimaryEquation();
+  theory.invalidateSecondaryEquation();
+  //theory.invalidateTertiaryEquation();
+};
+
 //var getSecondaryEquation = () => theory.latexSymbol + "=\\max\\rho";
 //var getPublicationMultiplier = (tau) => tau.pow(0.164) / BigNumber.THREE;
 //var getPublicationMultiplierFormula = (symbol) => "\\frac{{" + symbol + "}^{0.164}}{3}";
@@ -225,6 +274,24 @@ var getQuaternaryEntries = () => {
 
 var getStepwise = (level, power, cl, off, exp) => {
     return Utils.getStepwisePowerSum(level, power, cl, off).pow(exp)
+}
+
+var getInternalState = () => JSON.stringify({
+    stage: stage
+})
+
+var setInternalState = (stateStr) => {
+    if (!stateStr) return;
+
+    /**
+     * @param {String} str 
+     * @param {BigNumber} defaultValue
+     */
+    const parseBigNumBSF = (str, defaultValue) => (str ? BigNumber.fromBase64String(str) : defaultValue);
+
+    const state = JSON.parse(stateStr);
+
+    stage = state.stage ?? 0;
 }
 
 init();

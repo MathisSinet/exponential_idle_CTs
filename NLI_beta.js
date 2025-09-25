@@ -171,23 +171,28 @@ const milestoneCount = milestoneCosts.length;
 
 const a0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+/** @param {number} level @returns {BigNumber} */
 var getA0 = (level) => BigNumber.TWO.pow(level);
 
 const a1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+/** @param {number} level @returns {BigNumber} */
 var getA1 = (level) => BigNumber.TWO.pow(level);
 
 const a2Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a2aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+/** @param {number} level @returns {BigNumber} */
 var getA2 = (level) => BigNumber.TWO.pow(level);
 
 const b0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const b0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const b0bases = [1.2, 1.4];
+/** @param {number} level @returns {BigNumber} */
 var getB0 = (level) => BigNumber.from(b0bases[b0baseMs.level]).pow(level) - ONE;
 
 const b1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const b1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+/** @param {number} level @returns {BigNumber} */
 var getB1 = (level) => BigNumber.TWO.pow(level) - ONE;
 
 var getPublicationMultiplier = (tau) => tau.pow(pubMultExp);
@@ -1027,7 +1032,7 @@ var getTertiaryEquation = () => {
 }
 
 var get2DGraphValue = () => alphaMode ?
-    currencyAlpha.value.sign * (BigNumber.ONE + currencyAlpha.value.abs()).log10().toNumber()
-    : currencyRho.value.sign * (BigNumber.ONE + currencyRho.value.abs()).log10().toNumber()
+    currencyAlpha.value.sign * (ONE + currencyAlpha.value.abs()).log10().toNumber()
+    : currencyRho.value.sign * (ONE + currencyRho.value.abs()).log10().toNumber()
 
 init();
