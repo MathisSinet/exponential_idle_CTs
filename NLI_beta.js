@@ -2,7 +2,7 @@ import { BigNumber, parseBigNumber } from '../api/BigNumber';
 import { theory, QuaternaryEntry } from "../api/Theory";
 import { Localization } from "../api/Localization";
 import { Currency } from '../api/Currency';
-import { ExponentialCost, FirstFreeCost, FreeCost } from '../api/Costs';
+import { ExponentialCost, FirstFreeCost, FreeCost, ConstantCost } from '../api/Costs';
 import { Upgrade } from '../api/Upgrades';
 import { Utils, log } from '../api/Utils';
 import { ui } from '../api/ui/UI';
@@ -125,6 +125,13 @@ var b0a;
 /** @type {Upgrade} */
 var b1a;
 
+// Permanent upgrades
+
+/** @type {Upgrade} */
+var rhoUnlock;
+/** @type {Upgrade} */
+var milestoneMenuUnlock;
+
 // Milestones
 
 /** @type {CustomMilestoneUpgrade[]} */
@@ -134,8 +141,6 @@ var milestoneArray = [];
 var hTermMs;
 /** @type {CustomMilestoneUpgrade} */
 var b0baseMs;
-/** @type {CustomMilestoneUpgrade} */
-var rhoUnlock;
 
 // UI
 var rhodot = ZERO;
@@ -151,14 +156,19 @@ var debugResetMilestonesUpgrade;
 //////////
 // Balance
 
+// pub mult equation constants
 const pubMultExp = 0.1;
+
+// tau equation constants
 const rhoExponent = 0.2;
 const maxhExponent = 0.2;
 
 const permaCosts = bigNumArray([
-    1e8,
     1e5,
-    1e5
+    1e8,
+    1e12,
+    1e15,
+    1e20
 ]);
 
 const milestoneCosts = bigNumArray([
@@ -172,7 +182,7 @@ const milestoneCount = milestoneCosts.length;
 const a0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 /** @param {number} level @returns {BigNumber} */
-var getA0 = (level) => BigNumber.TWO.pow(level);
+var getA0 = (level) => BigNumber.TWO.pow(level) - ONE;
 
 const a1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
@@ -365,7 +375,7 @@ var init = () => {
     // Regular Upgrades
 
     {
-        let getDesc = (level) => `a_0=2^{${level}}`;
+        let getDesc = (level) => `a_0=2^{${level}}-1`;
         let getInfo = (level) => `a_0=${getA0(level).toString(0)}`;
 
         a0 = theory.createUpgrade(1, currencyRho, a0Cost);
@@ -434,8 +444,20 @@ var init = () => {
     /////////////////////
     // Permanent Upgrades
     theory.createPublicationUpgrade(0, currencyAlpha, permaCosts[0]);
-    //theory.createBuyAllUpgrade(1, currencyAlpha, permaCosts[1]);
-    //theory.createAutoBuyerUpgrade(2, currencyAlpha, permaCosts[2]);
+    {
+        rhoUnlock = theory.createPermanentUpgrade(1, currencyAlpha, new ConstantCost(permaCosts[1]));
+        rhoUnlock.getDescription = (_) => Localization.getUpgradeUnlockDesc("\\rho");
+        rhoUnlock.getInfo = (_) => "Unlock $\\rho$ and unlock the ability to swap the $k$ and $h$ in the integral";
+        rhoUnlock.maxLevel = 1;
+    }
+    {
+        milestoneMenuUnlock = theory.createPermanentUpgrade(2, currencyRho, new ConstantCost(permaCosts[2]));
+        milestoneMenuUnlock.getDescription = (_) => "Unlock the milestone menu";
+        milestoneMenuUnlock.getInfo = (_) => "Unlock the milestone menu";
+        milestoneMenuUnlock.maxLevel = 1;
+    }
+    theory.createBuyAllUpgrade(3, currencyRho, permaCosts[3]);
+    theory.createAutoBuyerUpgrade(4, currencyRho, permaCosts[4]);
 
     ///////////////////////
     //// Milestone Upgrades
@@ -461,12 +483,7 @@ var init = () => {
         b0baseMs.boughtOrRefunded = () => updateAvailability();
         b0baseMs.canBeRefunded = (_) => rhoUnlock.level === 0;
     }
-    {
-        rhoUnlock = new CustomMilestoneUpgrade(2, 1);
-        rhoUnlock.getDescription = (_) => "Unlock $\\rho$";
-        rhoUnlock.getInfo = (_) => "Unlock $\\rho$ and unlock the ability to swap the $k$ and $h$ in the integral";
-        rhoUnlock.canBeRefunded = (_) => alphaMode;
-    }
+    
 
     ///////////////////
     //// Debug Upgrades
@@ -497,14 +514,16 @@ var updateAvailability = () => {
         v.isAvailable = alphaMode;
     }
 
+    a0.isAvailable &&= false;
+    a0a.isAvailable &&= false;
+
     a2.isAvailable &&= false;
     a2a.isAvailable &&= false;
 
-    b1.isAvailable &&= hTermMs.level > 0;
-    b1a.isAvailable &&= hTermMs.level > 0;
+    b0.isAvailable &&= hTermMs.level > 0;
+    b0a.isAvailable &&= hTermMs.level > 0;
 
     b0baseMs.isAvailable = hTermMs.level > 0;
-    rhoUnlock.isAvailable = b0baseMs.level > 0;
 }
 
 var tick = (elapsedTime, multiplier) => {
@@ -520,8 +539,7 @@ var tick = (elapsedTime, multiplier) => {
 
     let k = [va0, va1];
 
-    let h = [vb0];
-    if (hTermMs.level > 0) h.push(vb1);
+    let h = [vb0, vb1];
 
     cur_h = evalp(h, PHI);
     maxh = maxh.max(cur_h);
@@ -664,7 +682,7 @@ var getEquationOverlay = () =>
     let switcherButtonContainer = ui.createGrid
     ({
         row: 0, column: 0,
-                isVisible: () => rhoUnlock.level > 0,
+        isVisible: () => rhoUnlock.level > 0,
         margin: new Thickness(0,0,2,0),
         horizontalOptions: LayoutOptions.START,
         verticalOptions: LayoutOptions.START,
@@ -680,7 +698,7 @@ var getEquationOverlay = () =>
         widthRequest: getImageSize(ui.screenWidth),
         heightRequest: getImageSize(ui.screenWidth),
         margin: new Thickness(0,18,10,0),
-        isVisible: true,
+        isVisible: () => milestoneMenuUnlock.level > 0,
         useTint: false,
         aspect: Aspect.ASPECT_FILL,
         horizontalOptions: LayoutOptions.END,
@@ -1001,10 +1019,10 @@ var getSecondaryEquation = () => {
     theory.secondaryEquationHeight = 100;
     theory.secondaryEquationScale = 1.25;
 
-    let k = "{a_1}x + a_0";
+    let k = "{a_1}x";
 
-    let h = "b_0";
-    if (hTermMs.level > 0) h = "{b_1}x + " + h;
+    let h = "{b_1}x";
+    if (hTermMs.level > 0) h = h + "+ b_0";
 
     result += `k(x) = ${k}\\\\h(x) = ${h}\\\\`;
     if (alphaMode) {
