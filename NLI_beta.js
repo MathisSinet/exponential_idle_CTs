@@ -141,6 +141,10 @@ var milestoneMenuUnlock;
 var buyAllMs;
 /** @type {Upgrade} */
 var autobuyMs;
+/** @type {Upgrade} */
+var kTermPerma;
+/** @type {Upgrade} */
+var hTermPerma;
 
 // Milestones
 
@@ -148,11 +152,13 @@ var autobuyMs;
 var milestoneArray = [];
 
 /** @type {CustomMilestoneUpgrade} */
-var kTermMs;
+var b1baseMs;
 /** @type {CustomMilestoneUpgrade} */
-var hTermMs;
+var a1baseMs;
 /** @type {CustomMilestoneUpgrade} */
 var b0baseMs;
+/** @type {CustomMilestoneUpgrade} */
+var a0baseMs;
 
 // UI
 var rhodot = ZERO;
@@ -175,13 +181,16 @@ const pubMultExp = 0.1;
 const rhoExponent = 0.2;
 const maxhExponent = 0.2;
 
-const permaCosts = bigNumArray([
-    1e5,
-    1e8,
-    1e12,
-    1e15,
-    1e20
-]);
+// Perma Upgrade Costs
+const pubUnlockCost = 1e5;
+const rhoUnlockCost = 1e8;
+const kTermCosts = bigNumArray([
+    '1e100',
+    '1e200'
+])
+const hTermCosts = bigNumArray([
+    '1e150'
+])
 
 const trueMilestoneCosts = bigNumArray([10, 12, 15])
 
@@ -195,13 +204,15 @@ const milestoneCount = milestoneCosts.length;
 
 const a0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const a0bases = [1.5, 1.8];
 /** @param {number} level @returns {BigNumber} */
-var getA0 = (level) => BigNumber.TWO.pow(level) - ONE;
+var getA0 = (level) => BigNumber.from(a0bases[a0baseMs.level]).pow(level);
 
 const a1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const a1bases = [1.5, 1.8];
 /** @param {number} level @returns {BigNumber} */
-var getA1 = (level) => BigNumber.TWO.pow(level);
+var getA1 = (level) => BigNumber.from(a1bases[a1baseMs.level]).pow(level);
 
 const a2Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a2aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
@@ -216,8 +227,9 @@ var getB0 = (level) => BigNumber.from(b0bases[b0baseMs.level]).pow(level) - ONE;
 
 const b1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const b1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const b1bases = [1.2, 1.4];
 /** @param {number} level @returns {BigNumber} */
-var getB1 = (level) => BigNumber.TWO.pow(level) - ONE;
+var getB1 = (level) => BigNumber.from(b1bases[b1baseMs.level]).pow(level) - ONE;
 
 var getPublicationMultiplier = (tau) => tau.pow(pubMultExp);
 
@@ -389,7 +401,7 @@ var init = () => {
     // Regular Upgrades
 
     {
-        let getDesc = (level) => `a_0=2^{${level}}-1`;
+        let getDesc = (level) => `a_0=${a0bases[a0baseMs.level]}^{${level}}-1`;
         let getInfo = (level) => `a_0=${getA0(level).toString(0)}`;
 
         a0 = theory.createUpgrade(1, currencyRho, a0Cost);
@@ -402,7 +414,7 @@ var init = () => {
     }
 
     {
-        let getDesc = (level) => `a_1=2^{${level}}`;
+        let getDesc = (level) => `a_1=${a1bases[a1baseMs.level]}^{${level}}`;
         let getInfo = (level) => `a_1=${getA1(level).toString(0)}`;
 
         a1 = theory.createUpgrade(2, currencyRho, a1Cost);
@@ -443,7 +455,7 @@ var init = () => {
     }
 
     {
-        let getDesc = (level) => `b_1=2^{${level}}-1`;
+        let getDesc = (level) => `b_1=${b1bases[b1baseMs.level]}^{${level}}-1`;
         let getInfo = (level) => `b_1=${getB1(level).toString(0)}`;
 
         b1 = theory.createUpgrade(12, currencyRho, b1Cost);
@@ -457,9 +469,9 @@ var init = () => {
 
     /////////////////////
     // Permanent Upgrades
-    theory.createPublicationUpgrade(0, currencyAlpha, permaCosts[0]);
+    theory.createPublicationUpgrade(0, currencyAlpha, pubUnlockCost);
     {
-        rhoUnlock = theory.createPermanentUpgrade(1, currencyAlpha, new ConstantCost(permaCosts[1]));
+        rhoUnlock = theory.createPermanentUpgrade(1, currencyAlpha, new ConstantCost(rhoUnlockCost));
         rhoUnlock.getDescription = (_) => Localization.getUpgradeUnlockDesc("\\rho");
         rhoUnlock.getInfo = (_) => "Unlock $\\rho$ and unlock the ability to swap the $k$ and $h$ in the integral";
         rhoUnlock.maxLevel = 1;
@@ -468,6 +480,26 @@ var init = () => {
     buyAllPerma.isAvailable = false;
     autobuyPerma = theory.createAutoBuyerUpgrade(3, currencyAlpha, 0);
     autobuyPerma.isAvailable = false;
+    {
+        kTermPerma = theory.createPermanentUpgrade(4, currencyAlpha, new CustomCost((level) => kTermCosts[level] || BigNumber.from("ee5")));
+        kTermPerma.getDescription = () => Localization.getUpgradeAddTermDesc(kTermPerma.level > 0 ? "a_3" : "a_2");
+        kTermPerma.getInfo = () => Localization.getUpgradeAddTermInfo(kTermPerma.level > 0 ? "a_3" : "a_2");
+        kTermPerma.boughtOrRefunded = (_) => {
+            theory.invalidateSecondaryEquation();
+            updateAvailability();
+        }
+        kTermPerma.maxLevel = 2;
+    }
+    {
+        hTermPerma = theory.createPermanentUpgrade(5, currencyAlpha, new CustomCost((level) => hTermCosts[level] || BigNumber.from("ee5")));
+        hTermPerma.getDescription = () => Localization.getUpgradeAddTermDesc("b_2");
+        hTermPerma.getInfo = () => Localization.getUpgradeAddTermInfo("b_2");
+        hTermPerma.boughtOrRefunded = (_) => {
+            theory.invalidateSecondaryEquation();
+            updateAvailability();
+        }
+        hTermPerma.maxLevel = 1;
+    }
 
     ///////////////////////
     //// True Milestone Upgrades
@@ -504,36 +536,42 @@ var init = () => {
     ///////////////////////
     //// Custom Milestone Upgrades
 
+    /**
+     * 
+     * @param {Upgrade} upgrade 
+     * @param {string} upgradeName 
+     * @param {number[]} bases 
+     */
+    var makeBaseUpgrade = (upgrade, upgradeName, bases) => {
+        upgrade.getDescription = (_) => Localization.getUpgradeIncCustomDesc(`${upgradeName} \\text{ base}`, `${
+            upgrade.level < upgrade.maxLevel ? r5(bases[upgrade.level + 1] - bases[upgrade.level]) : 0
+        }`)
+        upgrade.getInfo = (_) => `$${upgradeName}$ base: ` + (upgrade.level < upgrade.maxLevel 
+            ? Utils.getMathTo(`${bases[upgrade.level]}`, `${bases[upgrade.level + 1]}`)
+            : Utils.getMath(`${bases[upgrade.level]}`));
+        upgrade.boughtOrRefunded = () => updateAvailability();
+    }
+
+    
     {
-        kTermMs = new CustomMilestoneUpgrade(0, 2);
-        kTermMs.getDescription = () => Localization.getUpgradeAddTermDesc(kTermMs.level > 0 ? "a_3" : "a_2");
-        kTermMs.getInfo = () => Localization.getUpgradeAddTermInfo(kTermMs.level > 0 ? "a_3" : "a_2");
-        kTermMs.boughtOrRefunded = (_) => {
-            theory.invalidateSecondaryEquation();
-            updateAvailability();
-        }
-        kTermMs.canBeRefunded = (_) => b0baseMs.level === 0;
+        b1baseMs = new CustomMilestoneUpgrade(0, 1);
+        makeBaseUpgrade(b1baseMs, "b_1", b1bases);
+        b1baseMs.canBeRefunded = () => true;
     }
     {
-        hTermMs = new CustomMilestoneUpgrade(1, 1);
-        hTermMs.getDescription = () => Localization.getUpgradeAddTermDesc("b_2");
-        hTermMs.getInfo = () => Localization.getUpgradeAddTermInfo("b_2");
-        hTermMs.boughtOrRefunded = () => {
-            theory.invalidateSecondaryEquation();
-            updateAvailability();
-        }
-        hTermMs.canBeRefunded = (_) => b0baseMs.level === 0;
+        a1baseMs = new CustomMilestoneUpgrade(1, 1);
+        makeBaseUpgrade(a1baseMs, "a_1", a1bases);
+        a1baseMs.canBeRefunded = () => true;
     }
     {
         b0baseMs = new CustomMilestoneUpgrade(2, 1);
-        b0baseMs.getDescription = (_) => Localization.getUpgradeIncCustomDesc("b_0 \\text{ base}", `${
-            b0baseMs.level < b0baseMs.maxLevel ? r5(b0bases[b0baseMs.level + 1] - b0bases[b0baseMs.level]) : 0
-        }`)
-        b0baseMs.getInfo = (_) => "$b_0$ base: " + (b0baseMs.level < b0baseMs.maxLevel 
-            ? Utils.getMathTo(`${b0bases[b0baseMs.level]}`, `${b0bases[b0baseMs.level + 1]}`)
-            : Utils.getMath(`${b0bases[b0baseMs.level]}`));
-        b0baseMs.boughtOrRefunded = () => updateAvailability();
+        makeBaseUpgrade(b0baseMs, "b_0", b0bases);
         b0baseMs.canBeRefunded = () => true;
+    }
+    {
+        a0baseMs = new CustomMilestoneUpgrade(3, 1);
+        makeBaseUpgrade(a0baseMs, "a_0", a0bases);
+        a0baseMs.canBeRefunded = () => true;
     }
     
 
@@ -573,10 +611,10 @@ var updateAvailability = () => {
         v.isAvailable = alphaMode;
     }
 
-    a2.isAvailable &&= false;
-    a2a.isAvailable &&= false;
+    a2.isAvailable &&= kTermPerma.level > 0;
+    a2a.isAvailable &&= kTermPerma.level > 0;
 
-    b0baseMs.isAvailable = hTermMs.level > 0;
+    b0baseMs.isAvailable = true;
 }
 
 var tick = (elapsedTime, multiplier) => {
