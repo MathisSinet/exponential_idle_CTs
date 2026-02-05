@@ -2,7 +2,7 @@ import { BigNumber, parseBigNumber } from '../api/BigNumber';
 import { theory, QuaternaryEntry } from "../api/Theory";
 import { Localization } from "../api/Localization";
 import { Currency } from '../api/Currency';
-import { ExponentialCost, FirstFreeCost, FreeCost, ConstantCost } from '../api/Costs';
+import { ExponentialCost, FirstFreeCost, FreeCost, ConstantCost, CustomCost } from '../api/Costs';
 import { Upgrade } from '../api/Upgrades';
 import { Utils, log } from '../api/Utils';
 import { ui } from '../api/ui/UI';
@@ -130,13 +130,25 @@ var b1a;
 /** @type {Upgrade} */
 var rhoUnlock;
 /** @type {Upgrade} */
+var buyAllPerma;
+/** @type {Upgrade} */
+var autobuyPerma;
+
+// Regular Milestones
+/** @type {Upgrade} */
 var milestoneMenuUnlock;
+/** @type {Upgrade} */
+var buyAllMs;
+/** @type {Upgrade} */
+var autobuyMs;
 
 // Milestones
 
 /** @type {CustomMilestoneUpgrade[]} */
 var milestoneArray = [];
 
+/** @type {CustomMilestoneUpgrade} */
+var kTermMs;
 /** @type {CustomMilestoneUpgrade} */
 var hTermMs;
 /** @type {CustomMilestoneUpgrade} */
@@ -170,6 +182,8 @@ const permaCosts = bigNumArray([
     1e15,
     1e20
 ]);
+
+const trueMilestoneCosts = bigNumArray([10, 12, 15])
 
 const milestoneCosts = bigNumArray([
     '1e30',
@@ -450,22 +464,60 @@ var init = () => {
         rhoUnlock.getInfo = (_) => "Unlock $\\rho$ and unlock the ability to swap the $k$ and $h$ in the integral";
         rhoUnlock.maxLevel = 1;
     }
-    {
-        milestoneMenuUnlock = theory.createPermanentUpgrade(2, currencyRho, new ConstantCost(permaCosts[2]));
-        milestoneMenuUnlock.getDescription = (_) => "Unlock the milestone menu";
-        milestoneMenuUnlock.getInfo = (_) => "Unlock the milestone menu";
-        milestoneMenuUnlock.maxLevel = 1;
-    }
-    theory.createBuyAllUpgrade(3, currencyRho, permaCosts[3]);
-    theory.createAutoBuyerUpgrade(4, currencyRho, permaCosts[4]);
+    buyAllPerma = theory.createBuyAllUpgrade(2, currencyAlpha, 0);
+    buyAllPerma.isAvailable = false;
+    autobuyPerma = theory.createAutoBuyerUpgrade(3, currencyAlpha, 0);
+    autobuyPerma.isAvailable = false;
 
     ///////////////////////
-    //// Milestone Upgrades
+    //// True Milestone Upgrades
+
+    theory.setMilestoneCost(new CustomCost((level) => trueMilestoneCosts[level] || BigNumber.from(-1)));
+    {
+        milestoneMenuUnlock = theory.createMilestoneUpgrade(0, 1);
+        milestoneMenuUnlock.getDescription = () => "Unlock the milestone menu";
+        milestoneMenuUnlock.getInfo = () => "Unlock the milestone menu";
+        milestoneMenuUnlock.boughtOrRefunded = (_) => updateAvailability();
+        milestoneMenuUnlock.canBeRefunded = () => false;
+    }
+    {
+        buyAllMs = theory.createMilestoneUpgrade(1, 1);
+        buyAllMs.getDescription = () => Localization.getUpgradeBuyAllDesc();
+        buyAllMs.getInfo = () => Localization.getUpgradeBuyAllInfo();
+        buyAllMs.boughtOrRefunded = (_) => {
+            buyAllPerma.level = buyAllMs.level;
+            updateAvailability();
+        }
+        buyAllMs.canBeRefunded = () => false;
+    }
+    {
+        autobuyMs = theory.createMilestoneUpgrade(2, 1);
+        autobuyMs.getDescription = () => Localization.getUpgradeAutoBuyerDesc();
+        autobuyMs.getInfo = () => Localization.getUpgradeAutoBuyerInfo();
+        autobuyMs.boughtOrRefunded = (_) => {
+            autobuyPerma.level = autobuyMs.level;
+            updateAvailability();
+        }
+        autobuyMs.canBeRefunded = () => false;
+    }
+
+    ///////////////////////
+    //// Custom Milestone Upgrades
 
     {
-        hTermMs = new CustomMilestoneUpgrade(0, 1);
-        hTermMs.getDescription = (_) => Localization.getUpgradeAddTermDesc("b_1");
-        hTermMs.getInfo = (_) => Localization.getUpgradeAddTermInfo("b_1");
+        kTermMs = new CustomMilestoneUpgrade(0, 2);
+        kTermMs.getDescription = () => Localization.getUpgradeAddTermDesc(kTermMs.level > 0 ? "a_3" : "a_2");
+        kTermMs.getInfo = () => Localization.getUpgradeAddTermInfo(kTermMs.level > 0 ? "a_3" : "a_2");
+        kTermMs.boughtOrRefunded = (_) => {
+            theory.invalidateSecondaryEquation();
+            updateAvailability();
+        }
+        kTermMs.canBeRefunded = (_) => b0baseMs.level === 0;
+    }
+    {
+        hTermMs = new CustomMilestoneUpgrade(1, 1);
+        hTermMs.getDescription = () => Localization.getUpgradeAddTermDesc("b_2");
+        hTermMs.getInfo = () => Localization.getUpgradeAddTermInfo("b_2");
         hTermMs.boughtOrRefunded = () => {
             theory.invalidateSecondaryEquation();
             updateAvailability();
@@ -473,7 +525,7 @@ var init = () => {
         hTermMs.canBeRefunded = (_) => b0baseMs.level === 0;
     }
     {
-        b0baseMs = new CustomMilestoneUpgrade(1, 1);
+        b0baseMs = new CustomMilestoneUpgrade(2, 1);
         b0baseMs.getDescription = (_) => Localization.getUpgradeIncCustomDesc("b_0 \\text{ base}", `${
             b0baseMs.level < b0baseMs.maxLevel ? r5(b0bases[b0baseMs.level + 1] - b0bases[b0baseMs.level]) : 0
         }`)
@@ -481,7 +533,7 @@ var init = () => {
             ? Utils.getMathTo(`${b0bases[b0baseMs.level]}`, `${b0bases[b0baseMs.level + 1]}`)
             : Utils.getMath(`${b0bases[b0baseMs.level]}`));
         b0baseMs.boughtOrRefunded = () => updateAvailability();
-        b0baseMs.canBeRefunded = (_) => rhoUnlock.level === 0;
+        b0baseMs.canBeRefunded = () => true;
     }
     
 
@@ -499,6 +551,9 @@ var init = () => {
                 milestonesAvailable = 0;
                 totalMilestonePoints = 0;
             }
+            milestoneMenuUnlock.level = 0;
+            buyAllMs.level = 0;
+            autobuyMs.level = 0;
         }
     }
     
@@ -506,6 +561,10 @@ var init = () => {
 }
 
 var updateAvailability = () => {
+    // Regular milestones
+    buyAllMs.isAvailable = milestoneMenuUnlock.level > 0;
+    autobuyMs.isAvailable = buyAllMs.level > 0;
+
     // Upgrades
     for (var v of [a0,a1,a2,b0,b1]) {
         v.isAvailable = !alphaMode;
@@ -514,14 +573,8 @@ var updateAvailability = () => {
         v.isAvailable = alphaMode;
     }
 
-    a0.isAvailable &&= false;
-    a0a.isAvailable &&= false;
-
     a2.isAvailable &&= false;
     a2a.isAvailable &&= false;
-
-    b0.isAvailable &&= hTermMs.level > 0;
-    b0a.isAvailable &&= hTermMs.level > 0;
 
     b0baseMs.isAvailable = hTermMs.level > 0;
 }
@@ -1019,10 +1072,9 @@ var getSecondaryEquation = () => {
     theory.secondaryEquationHeight = 100;
     theory.secondaryEquationScale = 1.25;
 
-    let k = "{a_1}x";
+    let k = "{a_1}x + a_0";
 
-    let h = "{b_1}x";
-    if (hTermMs.level > 0) h = h + "+ b_0";
+    let h = "{b_1}x + b_0";
 
     result += `k(x) = ${k}\\\\h(x) = ${h}\\\\`;
     if (alphaMode) {
