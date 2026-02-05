@@ -629,6 +629,7 @@ var tick = (elapsedTime, multiplier) => {
     const vb1 = getB1((alphaMode ? b1a : b1).level);
 
     let k = [va0, va1];
+    if (kTermPerma.level > 0) k.push(va2);
 
     let h = [vb0, vb1];
 
@@ -1111,6 +1112,9 @@ var getSecondaryEquation = () => {
     theory.secondaryEquationScale = 1.25;
 
     let k = "{a_1}x + a_0";
+    if (kTermPerma.level > 0) {
+        k = "{a_2}x^2 + " + k;
+    }
 
     let h = "{b_1}x + b_0";
 
