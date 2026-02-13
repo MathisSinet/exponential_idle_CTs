@@ -111,9 +111,14 @@ var a1;
 /** @type {Upgrade} */
 var a2;
 /** @type {Upgrade} */
+var a3;
+/** @type {Upgrade} */
 var b0;
 /** @type {Upgrade} */
 var b1;
+/** @type {Upgrade} */
+var b2;
+
 /** @type {Upgrade} */
 var a0a;
 /** @type {Upgrade} */
@@ -121,17 +126,26 @@ var a1a;
 /** @type {Upgrade} */
 var a2a;
 /** @type {Upgrade} */
+var a3a;
+/** @type {Upgrade} */
 var b0a;
 /** @type {Upgrade} */
 var b1a;
+/** @type {Upgrade} */
+var b2a;
 
 // Permanent upgrades
 
 /** @type {Upgrade} */
 var rhoUnlock;
 /** @type {Upgrade} */
-var buyAllPerma;
+var kTermPerma;
 /** @type {Upgrade} */
+var hTermPerma;
+
+/** @type {Upgrade} hidden */
+var buyAllPerma;
+/** @type {Upgrade} hidden */
 var autobuyPerma;
 
 // Regular Milestones
@@ -141,10 +155,6 @@ var milestoneMenuUnlock;
 var buyAllMs;
 /** @type {Upgrade} */
 var autobuyMs;
-/** @type {Upgrade} */
-var kTermPerma;
-/** @type {Upgrade} */
-var hTermPerma;
 
 // Milestones
 
@@ -159,6 +169,12 @@ var a1baseMs;
 var b0baseMs;
 /** @type {CustomMilestoneUpgrade} */
 var a0baseMs;
+/** @type {CustomMilestoneUpgrade} */
+var b2baseMs;
+/** @type {CustomMilestoneUpgrade} */
+var a2baseMs;
+/** @type {CustomMilestoneUpgrade} */
+var a3baseMs;
 
 // UI
 var rhodot = ZERO;
@@ -186,10 +202,10 @@ const pubUnlockCost = 1e5;
 const rhoUnlockCost = 1e8;
 const kTermCosts = bigNumArray([
     '1e100',
-    '1e200'
+    '1e140'
 ])
 const hTermCosts = bigNumArray([
-    '1e150'
+    '1e120'
 ])
 
 const trueMilestoneCosts = bigNumArray([10, 12, 15])
@@ -216,8 +232,15 @@ var getA1 = (level) => BigNumber.from(a1bases[a1baseMs.level]).pow(level);
 
 const a2Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a2aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const a2bases = [2, 2.2];
 /** @param {number} level @returns {BigNumber} */
-var getA2 = (level) => BigNumber.TWO.pow(level);
+var getA2 = (level) => BigNumber.from(a2bases[a2baseMs.level]).pow(level);
+
+const a3Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const a3aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const a3bases = [2, 2.2];
+/** @param {number} level @returns {BigNumber} */
+var getA3 = (level) => BigNumber.from(a3bases[a3baseMs.level]).pow(level);
 
 const b0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const b0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
@@ -230,6 +253,12 @@ const b1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const b1bases = [1.2, 1.4];
 /** @param {number} level @returns {BigNumber} */
 var getB1 = (level) => BigNumber.from(b1bases[b1baseMs.level]).pow(level) - ONE;
+
+const b2Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const b2aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const b2bases = [2, 2.2];
+/** @param {number} level @returns {BigNumber} */
+var getB2 = (level) => BigNumber.from(b2bases[b2baseMs.level]).pow(level) - ONE;
 
 var getPublicationMultiplier = (tau) => tau.pow(pubMultExp);
 
@@ -428,7 +457,7 @@ var init = () => {
     }
 
     {
-        let getDesc = (level) => `a_2=2^{${level}}`;
+        let getDesc = (level) => `a_2=${a2bases[a2baseMs.level]}^{${level}}`;
         let getInfo = (level) => `a_2=${getA2(level).toString(0)}`;
 
         a2 = theory.createUpgrade(3, currencyRho, a2Cost);
@@ -439,6 +468,20 @@ var init = () => {
         a2a = theory.createUpgrade(23, currencyAlpha, a2aCost);
         a2a.getDescription = (_) => Utils.getMath(getDesc(a2a.level));
         a2a.getInfo = (amount) => Utils.getMathTo(getInfo(a2a.level), getInfo(a2a.level + amount));
+    }
+
+    {
+        let getDesc = (level) => `a_3=${a3bases[a3baseMs.level]}^{${level}}`;
+        let getInfo = (level) => `a_3=${getA3(level).toString(0)}`;
+
+        a3 = theory.createUpgrade(4, currencyRho, a3Cost);
+        a3.getDescription = (_) => Utils.getMath(getDesc(a3.level));
+        a3.getInfo = (amount) => Utils.getMathTo(getInfo(a3.level), getInfo(a3.level + amount));
+
+        
+        a3a = theory.createUpgrade(24, currencyAlpha, a3aCost);
+        a3a.getDescription = (_) => Utils.getMath(getDesc(a3a.level));
+        a3a.getInfo = (amount) => Utils.getMathTo(getInfo(a3a.level), getInfo(a3a.level + amount));
     }
 
     {
@@ -465,6 +508,19 @@ var init = () => {
         b1a = theory.createUpgrade(32, currencyAlpha, b1aCost);
         b1a.getDescription = (_) => Utils.getMath(getDesc(b1a.level));
         b1a.getInfo = (amount) => Utils.getMathTo(getInfo(b1a.level), getInfo(b1a.level + amount));
+    }
+
+    {
+        let getDesc = (level) => `b_2=${b2bases[b2baseMs.level]}^{${level}}-1`;
+        let getInfo = (level) => `b_2=${getB2(level).toString(0)}`;
+
+        b2 = theory.createUpgrade(13, currencyRho, b2Cost);
+        b2.getDescription = (_) => Utils.getMath(getDesc(b2.level));
+        b2.getInfo = (amount) => Utils.getMathTo(getInfo(b2.level), getInfo(b2.level + amount));
+
+        b2a = theory.createUpgrade(33, currencyAlpha, b2aCost);
+        b2a.getDescription = (_) => Utils.getMath(getDesc(b2a.level));
+        b2a.getInfo = (amount) => Utils.getMathTo(getInfo(b2a.level), getInfo(b2a.level + amount));
     }
 
     /////////////////////
@@ -573,6 +629,21 @@ var init = () => {
         makeBaseUpgrade(a0baseMs, "a_0", a0bases);
         a0baseMs.canBeRefunded = () => true;
     }
+    {
+        b2baseMs = new CustomMilestoneUpgrade(4, 1);
+        makeBaseUpgrade(b2baseMs, "b_2", b2bases);
+        b2baseMs.canBeRefunded = () => true;
+    }
+    {
+        a2baseMs = new CustomMilestoneUpgrade(5, 1);
+        makeBaseUpgrade(a2baseMs, "a_2", a2bases);
+        a2baseMs.canBeRefunded = () => true;
+    }
+    {
+        a3baseMs = new CustomMilestoneUpgrade(6, 1);
+        makeBaseUpgrade(a3baseMs, "a_3", a3bases);
+        a3baseMs.canBeRefunded = () => true;
+    }
     
 
     ///////////////////
@@ -592,6 +663,9 @@ var init = () => {
             milestoneMenuUnlock.level = 0;
             buyAllMs.level = 0;
             autobuyMs.level = 0;
+
+            kTermPerma.refund(-1);
+            hTermPerma.refund(-1);
         }
     }
     
@@ -604,15 +678,21 @@ var updateAvailability = () => {
     autobuyMs.isAvailable = buyAllMs.level > 0;
 
     // Upgrades
-    for (var v of [a0,a1,a2,b0,b1]) {
+    for (var v of [a0,a1,a2,a3,b0,b1,b2]) {
         v.isAvailable = !alphaMode;
     }
-    for (var v of [a0a,a1a,a2a,b0a,b1a]) {
+    for (var v of [a0a,a1a,a2a,a3a,b0a,b1a,b2a]) {
         v.isAvailable = alphaMode;
     }
 
     a2.isAvailable &&= kTermPerma.level > 0;
     a2a.isAvailable &&= kTermPerma.level > 0;
+
+    a3.isAvailable &&= kTermPerma.level > 1;
+    a3a.isAvailable &&= kTermPerma.level > 1;
+
+    b2.isAvailable &&= hTermPerma.level > 0;
+    b2a.isAvailable &&= hTermPerma.level > 0;
 
     b0baseMs.isAvailable = true;
 }
@@ -624,14 +704,18 @@ var tick = (elapsedTime, multiplier) => {
     const va0 = getA0((alphaMode ? a0a : a0).level);
     const va1 = getA1((alphaMode ? a1a : a1).level);
     const va2 = getA2((alphaMode ? a2a : a2).level);
+    const va3 = getA3((alphaMode ? a3a : a3).level);
 
     const vb0 = getB0((alphaMode ? b0a : b0).level);
     const vb1 = getB1((alphaMode ? b1a : b1).level);
+    const vb2 = getB2((alphaMode ? b2a : b2).level);
 
     let k = [va0, va1];
     if (kTermPerma.level > 0) k.push(va2);
+    if (kTermPerma.level > 1) k.push(va3);
 
     let h = [vb0, vb1];
+    if (hTermPerma.level > 0) h.push(vb2);
 
     cur_h = evalp(h, PHI);
     maxh = maxh.max(cur_h);
@@ -1115,8 +1199,14 @@ var getSecondaryEquation = () => {
     if (kTermPerma.level > 0) {
         k = "{a_2}x^2 + " + k;
     }
+    if (kTermPerma.level > 1) {
+        k = "{a_3}x^3 + " + k;
+    }
 
     let h = "{b_1}x + b_0";
+    if (hTermPerma.level > 0) {
+        h = "{b_2}x^2 + " + h;
+    }
 
     result += `k(x) = ${k}\\\\h(x) = ${h}\\\\`;
     if (alphaMode) {
