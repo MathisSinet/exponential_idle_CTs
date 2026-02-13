@@ -213,7 +213,13 @@ const trueMilestoneCosts = bigNumArray([10, 12, 15])
 const milestoneCosts = bigNumArray([
     '1e30',
     '1e50',
-    '1e70'
+    '1e70',
+    '1e90',
+    '1e110',
+    '1e130',
+    '1e140',
+    '1e150',
+    '1e170'
 ]);
 
 const milestoneCount = milestoneCosts.length;
