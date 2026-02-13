@@ -1036,10 +1036,10 @@ var createMilestoneMenu = () => {
                 }),
                 // Current milestone reduction
                 ui.createLatexLabel({
-                    margin: new Thickness(0, 0, 0, 8),
+                    margin: new Thickness(0, 0, 0, 6),
                     text: () => Utils.getMath(`R = ${getMilestoneCostReduction()}`),
                     horizontalTextAlignment: TextAlignment.CENTER,
-                    verticalTextAlignment: TextAlignment.CENTER
+                    verticalTextAlignment: TextAlignment.START
                 }),
                 // Next milestone cost
                 ui.createLatexLabel({
@@ -1051,7 +1051,7 @@ var createMilestoneMenu = () => {
                         )
                         : Localization.get("PublicationPopupMileDone"),
                     horizontalTextAlignment: TextAlignment.CENTER,
-                    verticalTextAlignment: TextAlignment.CENTER
+                    verticalTextAlignment: TextAlignment.START
                 }),
                 // Upgrades left
                 ui.createLatexLabel({
@@ -1059,7 +1059,7 @@ var createMilestoneMenu = () => {
                     fontSize: 12,
                     text: () => Localization.format(Localization.get("PublicationPopupMileLeft"), milestonesAvailable),
                     horizontalTextAlignment: TextAlignment.CENTER,
-                    verticalTextAlignment: TextAlignment.CENTER
+                    verticalTextAlignment: TextAlignment.START
                 }),
                 // Info button
                 ui.createGrid({
