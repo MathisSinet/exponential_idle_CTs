@@ -875,7 +875,7 @@ var getEquationOverlay = () =>
         heightRequest: getImageSize(ui.screenWidth),
         margin: new Thickness(0,18,10,0),
         isVisible: () => milestoneMenuUnlock.level > 0,
-        useTint: false,
+        useTint: true,
         aspect: Aspect.ASPECT_FILL,
         horizontalOptions: LayoutOptions.END,
         verticalOptions: LayoutOptions.START,
@@ -957,7 +957,7 @@ var createMilestoneUpgradeUI = (milestone) => {
     let isMilestoneBuyable = () => milestone.level < milestone.maxLevel && milestonesAvailable > 0;
 
     let refundButton = ui.createImage({
-        useTint: false,
+        useTint: true,
         opacity: () => (milestone.canBeRefunded(1) && !refund_button_pressed) ? 0.5 : 0.2,
         source: ImageSource.REFUND,
         widthRequest: getImageSize(ui.screenWidth),
@@ -1074,7 +1074,7 @@ var createMilestoneMenu = () => {
     let info_button_pressed = false;
 
     let infoButton = ui.createImage({
-        useTint: false,
+        useTint: true,
         opacity: () => info_button_pressed ? 0.5 : 1,
         source: ImageSource.INFO,
         widthRequest: getImageSize(ui.screenWidth),
