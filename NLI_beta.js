@@ -187,6 +187,7 @@ var rhodot = ZERO;
 var alphadot = ZERO;
 var cur_h = ZERO;
 
+var mainEquationPressed = false;
 var milestoneInfoPressed = false;
 
 // Debug
@@ -940,7 +941,13 @@ var getEquationOverlay = () =>
         [
             switcherButtonContainer,
             milestoneMenuButton,
-        ]
+        ],
+        onTouched: (event) => {
+            if (event.type == TouchType.PRESSED || event.type.isReleased()) {
+            mainEquationPressed = event.type == TouchType.PRESSED;
+            theory.invalidatePrimaryEquation();
+            }
+        },
     });
     return result;
 }
@@ -1217,19 +1224,28 @@ var getPrimaryEquation = () => {
     theory.primaryEquationHeight = 100
     theory.primaryEquationScale = 1.25
 
-    if (alphaMode) {
-        result += `\\dot{\\alpha}=\\int_{0}^{q}{h(x)dk(x)}`;
+    if (mainEquationPressed) {
+        result += "\\int_{A}^{B}{P(x)dQ(x)} = \\int_{A}^{B}{P(x)Q'(x)dx}"
     }
     else {
-        result += `\\dot{\\rho}=\\int_{0}^{q}{k(x)dh(x)}`;
+        if (alphaMode) {
+            result += `\\dot{\\alpha}=\\int_{0}^{q}{h(x)dk(x)}`;
+        }
+        else {
+            result += `\\dot{\\rho}=\\int_{0}^{q}{k(x)dh(x)}`;
+        }
     }
     
-
     return result;
 }
 
 var getSecondaryEquation = () => {
     let result = ``;
+
+    if (mainEquationPressed) {
+        result += "\\phi = \\frac{1+\\sqrt{5}}{2}";
+        return result;
+    }
 
     theory.secondaryEquationHeight = 110;
     theory.secondaryEquationScale = 1.25;
