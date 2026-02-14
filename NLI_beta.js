@@ -1221,7 +1221,7 @@ var isCurrencyVisible = (index) => !(index ^ alphaMode);
 var getPrimaryEquation = () => {
     let result = ``;
 
-    theory.primaryEquationHeight = 100
+    theory.primaryEquationHeight = 90
     theory.primaryEquationScale = 1.25
 
     if (mainEquationPressed) {
@@ -1247,7 +1247,7 @@ var getSecondaryEquation = () => {
         return result;
     }
 
-    theory.secondaryEquationHeight = 110;
+    theory.secondaryEquationHeight = 90;
     theory.secondaryEquationScale = 1.25;
 
     let k = "{a_1}x + a_0";
@@ -1264,7 +1264,7 @@ var getSecondaryEquation = () => {
     }
     
     result += `k(x) = ${k}\\\\h(x) = ${h}\\\\`;
-    result += `\\dot{q} = q_1 q^{-\\phi}\\\\`;
+    result += `\\dot{q} = q_1 q^{-\\phi},\\quad`;
     if (alphaMode) {
         result += `\\dot{\\alpha} = ${alphadot.toString()}`;
     }
