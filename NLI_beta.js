@@ -91,6 +91,7 @@ const ONE = BigNumber.ONE;
 
 var alphaMode = true;
 
+let q = ONE;
 let maxh = ZERO;
 
 let milestonesAvailable = 0;
@@ -104,6 +105,11 @@ var currencyRho;
 var currencyAlpha;
 
 // Upgrades
+/** @type {Upgrade} */
+var q1;
+/** @type {Upgrade} */
+var q1a;
+
 /** @type {Upgrade} */
 var a0;
 /** @type {Upgrade} */
@@ -223,6 +229,10 @@ const milestoneCosts = bigNumArray([
 ]);
 
 const milestoneCount = milestoneCosts.length;
+
+const q1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const q1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+var getQ1 = (level) => BigNumber.TWO.pow(level) - ONE;
 
 const a0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
 const a0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
@@ -403,6 +413,7 @@ var rspInt = (poly1, poly2, lBound, hBound) => {
 var switchMode = () => {
     alphaMode = !alphaMode;
 
+    q = ONE;
     currencyRho.value = ZERO;
     currencyAlpha.value = ZERO;
 
@@ -436,8 +447,21 @@ var init = () => {
     // Regular Upgrades
 
     {
-        let getDesc = (level) => `a_0=${a0bases[a0baseMs.level]}^{${level}}-1`;
-        let getInfo = (level) => `a_0=${getA0(level).toString(0)}`;
+        let getDesc = (level) => `q_1=2^{${level}}-1`;
+        let getInfo = (level) => `q_1=${getQ1(level).toString(0)}`;
+
+        q1 = theory.createUpgrade(0, currencyRho, q1Cost);
+        q1.getDescription = (_) => Utils.getMath(getDesc(q1.level));
+        q1.getInfo = (amount) => Utils.getMathTo(getInfo(q1.level), getInfo(q1.level + amount));
+
+        q1a = theory.createUpgrade(20, currencyAlpha, q1aCost);
+        q1a.getDescription = (_) => Utils.getMath(getDesc(q1a.level));
+        q1a.getInfo = (amount) => Utils.getMathTo(getInfo(q1a.level), getInfo(q1a.level + amount));
+    }
+
+    {
+        let getDesc = (level) => `a_0=${a0bases[a0baseMs.level]}^{${level}}`;
+        let getInfo = (level) => `a_0=${getA0(level).toString(2)}`;
 
         a0 = theory.createUpgrade(1, currencyRho, a0Cost);
         a0.getDescription = (_) => Utils.getMath(getDesc(a0.level));
@@ -450,7 +474,7 @@ var init = () => {
 
     {
         let getDesc = (level) => `a_1=${a1bases[a1baseMs.level]}^{${level}}`;
-        let getInfo = (level) => `a_1=${getA1(level).toString(0)}`;
+        let getInfo = (level) => `a_1=${getA1(level).toString(2)}`;
 
         a1 = theory.createUpgrade(2, currencyRho, a1Cost);
         a1.getDescription = (_) => Utils.getMath(getDesc(a1.level));
@@ -464,7 +488,7 @@ var init = () => {
 
     {
         let getDesc = (level) => `a_2=${a2bases[a2baseMs.level]}^{${level}}`;
-        let getInfo = (level) => `a_2=${getA2(level).toString(0)}`;
+        let getInfo = (level) => `a_2=${getA2(level).toString(2)}`;
 
         a2 = theory.createUpgrade(3, currencyRho, a2Cost);
         a2.getDescription = (_) => Utils.getMath(getDesc(a2.level));
@@ -478,7 +502,7 @@ var init = () => {
 
     {
         let getDesc = (level) => `a_3=${a3bases[a3baseMs.level]}^{${level}}`;
-        let getInfo = (level) => `a_3=${getA3(level).toString(0)}`;
+        let getInfo = (level) => `a_3=${getA3(level).toString(2)}`;
 
         a3 = theory.createUpgrade(4, currencyRho, a3Cost);
         a3.getDescription = (_) => Utils.getMath(getDesc(a3.level));
@@ -505,7 +529,7 @@ var init = () => {
 
     {
         let getDesc = (level) => `b_1=${b1bases[b1baseMs.level]}^{${level}}-1`;
-        let getInfo = (level) => `b_1=${getB1(level).toString(0)}`;
+        let getInfo = (level) => `b_1=${getB1(level).toString(2)}`;
 
         b1 = theory.createUpgrade(12, currencyRho, b1Cost);
         b1.getDescription = (_) => Utils.getMath(getDesc(b1.level));
@@ -518,7 +542,7 @@ var init = () => {
 
     {
         let getDesc = (level) => `b_2=${b2bases[b2baseMs.level]}^{${level}}-1`;
-        let getInfo = (level) => `b_2=${getB2(level).toString(0)}`;
+        let getInfo = (level) => `b_2=${getB2(level).toString(2)}`;
 
         b2 = theory.createUpgrade(13, currencyRho, b2Cost);
         b2.getDescription = (_) => Utils.getMath(getDesc(b2.level));
@@ -684,10 +708,10 @@ var updateAvailability = () => {
     autobuyMs.isAvailable = buyAllMs.level > 0;
 
     // Upgrades
-    for (var v of [a0,a1,a2,a3,b0,b1,b2]) {
+    for (var v of [q1,a0,a1,a2,a3,b0,b1,b2]) {
         v.isAvailable = !alphaMode;
     }
-    for (var v of [a0a,a1a,a2a,a3a,b0a,b1a,b2a]) {
+    for (var v of [q1a,a0a,a1a,a2a,a3a,b0a,b1a,b2a]) {
         v.isAvailable = alphaMode;
     }
 
@@ -707,6 +731,8 @@ var tick = (elapsedTime, multiplier) => {
     const dt = elapsedTime * multiplier;
     const bonus = theory.publicationMultiplier;
 
+    const vq1 = getQ1((alphaMode ? q1a : q1).level);
+
     const va0 = getA0((alphaMode ? a0a : a0).level);
     const va1 = getA1((alphaMode ? a1a : a1).level);
     const va2 = getA2((alphaMode ? a2a : a2).level);
@@ -715,6 +741,10 @@ var tick = (elapsedTime, multiplier) => {
     const vb0 = getB0((alphaMode ? b0a : b0).level);
     const vb1 = getB1((alphaMode ? b1a : b1).level);
     const vb2 = getB2((alphaMode ? b2a : b2).level);
+
+    const PHI_PLUS_ONE = ONE + PHI;
+    q = (q.pow(PHI_PLUS_ONE) + dt * vq1).pow(ONE/PHI_PLUS_ONE);
+
 
     let k = [va0, va1];
     if (kTermPerma.level > 0) k.push(va2);
@@ -727,12 +757,12 @@ var tick = (elapsedTime, multiplier) => {
     maxh = maxh.max(cur_h);
 
     if (alphaMode) {
-        const integral = rspInt(h, k, ZERO, PHI);
+        const integral = rspInt(h, k, ZERO, q);
         alphadot = integral * bonus * multiplier;
         currencyAlpha.value += alphadot * elapsedTime;
     }
     else {
-        const integral = rspInt(k, h, ZERO, PHI);
+        const integral = rspInt(k, h, ZERO, q);
         rhodot = integral * bonus * multiplier;
         currencyRho.value += rhodot * elapsedTime;
     }
@@ -751,6 +781,7 @@ var tick = (elapsedTime, multiplier) => {
 var postPublish = () => {
     currencyRho.value = ZERO;
     currencyAlpha.value = ZERO;
+    q = ONE;
     maxh = ZERO;
 
     rhodot = ZERO;
@@ -766,7 +797,8 @@ var getInternalState = () => JSON.stringify({
     milestonesAvailable,
     totalMilestonePoints,
     maxh: maxh.toBase64String(),
-    maxMilestoneThreshold: maxMilestoneThreshold.toBase64String()
+    maxMilestoneThreshold: maxMilestoneThreshold.toBase64String(),
+    q: q.toBase64String()
 })
 
 var setInternalState = (stateStr) => {
@@ -785,6 +817,7 @@ var setInternalState = (stateStr) => {
     totalMilestonePoints = state.totalMilestonePoints ?? 0;
     maxh = parseBigNumBSF(state.maxh, ZERO);
     maxMilestoneThreshold = parseBigNumBSF(state.maxMilestoneThreshold, ZERO);
+    q = parseBigNumBSF(state.q, ZERO);
 }
 
 /////
@@ -929,7 +962,7 @@ var createSwitcherMenu = () => {
                 }),
                 ui.createLatexLabel({
                     margin: new Thickness(0, 0, 0, 6),
-                    text: "Your currencies and levels are reset"+
+                    text: "Your currencies, levels and $q$ are reset"+
                     " but $\\max{h(\\phi)}$ is kept.",
                     horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER
@@ -937,7 +970,7 @@ var createSwitcherMenu = () => {
                 ui.createButton
                 ({
                     margin: new Thickness(0, 0, 0, 6),
-                    text: () => "Switch Now",
+                    text: "Switch Now",
                     onReleased: () => { 
                         switchMode(),
                         menu.hide()
@@ -1185,10 +1218,10 @@ var getPrimaryEquation = () => {
     theory.primaryEquationScale = 1.25
 
     if (alphaMode) {
-        result += `\\dot{\\alpha}=\\int_{0}^{\\phi}{h(x)dk(x)}`;
+        result += `\\dot{\\alpha}=\\int_{0}^{q}{h(x)dk(x)}`;
     }
     else {
-        result += `\\dot{\\rho}=\\int_{0}^{\\phi}{k(x)dh(x)}`;
+        result += `\\dot{\\rho}=\\int_{0}^{q}{k(x)dh(x)}`;
     }
     
 
@@ -1198,7 +1231,7 @@ var getPrimaryEquation = () => {
 var getSecondaryEquation = () => {
     let result = ``;
 
-    theory.secondaryEquationHeight = 100;
+    theory.secondaryEquationHeight = 110;
     theory.secondaryEquationScale = 1.25;
 
     let k = "{a_1}x + a_0";
@@ -1213,8 +1246,9 @@ var getSecondaryEquation = () => {
     if (hTermPerma.level > 0) {
         h = "{b_2}x^2 + " + h;
     }
-
+    
     result += `k(x) = ${k}\\\\h(x) = ${h}\\\\`;
+    result += `\\dot{q} = q_1 q^{-\\phi}\\\\`;
     if (alphaMode) {
         result += `\\dot{\\alpha} = ${alphadot.toString()}`;
     }
@@ -1231,6 +1265,7 @@ var getSecondaryEquation = () => {
 var getTertiaryEquation = () => {
     let result = ``;
 
+    result += `q=${q} \\\\`;
     result += `h(\\phi)=${cur_h}, \\max{h(\\phi)} = ${maxh}`;
     if (!alphaMode) {
         result += `\\\\ \\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}} = ${getTau()}`;
