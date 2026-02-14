@@ -418,12 +418,14 @@ var switchMode = () => {
     currencyRho.value = ZERO;
     currencyAlpha.value = ZERO;
 
+    q1.level = 0;
     a0.level = 0;
     a1.level = 0;
     a2.level = 0;
     b0.level = 0;
     b1.level = 0;
 
+    q1a.level = 0;
     a0a.level = 0;
     a1a.level = 0;
     a2a.level = 0;
@@ -788,6 +790,9 @@ var postPublish = () => {
     rhodot = ZERO;
     alphadot = ZERO;
 
+    alphaMode = true;
+
+    theory.invalidatePrimaryEquation();
     theory.invalidateSecondaryEquation();
     theory.invalidateTertiaryEquation();
 }
