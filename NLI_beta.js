@@ -93,6 +93,9 @@ var alphaMode = true;
 
 let q = ONE;
 let maxh = ZERO;
+let maxrho = ZERO;
+
+var pubTime = 0;
 
 let milestonesAvailable = 0;
 let totalMilestonePoints = 0;
@@ -198,21 +201,21 @@ var debugResetMilestonesUpgrade;
 // Balance
 
 // pub mult equation constants
-const pubMultExp = 0.1;
+const pubMultExp = 0.2;
 
 // tau equation constants
-const rhoExponent = 0.2;
-const maxhExponent = 0.2;
+const rhoExponent = 0.4;
+const maxhExponent = 0.4;
 
 // Perma Upgrade Costs
-const pubUnlockCost = 1e5;
-const rhoUnlockCost = 1e8;
+const pubUnlockCost = 0;
+const rhoUnlockCost = 0;
 const kTermCosts = bigNumArray([
-    '1e100',
-    '1e140'
+    '0',
+    '0'
 ])
 const hTermCosts = bigNumArray([
-    '1e120'
+    '0'
 ])
 
 const trueMilestoneCosts = bigNumArray([10, 12, 15])
@@ -231,49 +234,49 @@ const milestoneCosts = bigNumArray([
 
 const milestoneCount = milestoneCosts.length;
 
-const q1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const q1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
+const q1Cost = new FirstFreeCost(new ExponentialCost(100, Math.log2(30)));
+const q1aCost = new FirstFreeCost(new ExponentialCost(100, Math.log2(30)));
 var getQ1 = (level) => BigNumber.TWO.pow(level) - ONE;
 
-const a0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const a0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const a0bases = [1.5, 1.8];
+const a0Cost = new ExponentialCost(30, Math.log2(2));
+const a0aCost = new ExponentialCost(30, Math.log2(1e6));
+const a0bases = [1.4, 1.8];
 /** @param {number} level @returns {BigNumber} */
 var getA0 = (level) => BigNumber.from(a0bases[a0baseMs.level]).pow(level);
 
-const a1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const a1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const a1bases = [1.5, 1.8];
+const a1Cost = new ExponentialCost(100, Math.log2(2.3));
+const a1aCost = new ExponentialCost(100, Math.log2(2.8));
+const a1bases = [1.4, 1.8];
 /** @param {number} level @returns {BigNumber} */
 var getA1 = (level) => BigNumber.from(a1bases[a1baseMs.level]).pow(level);
 
-const a2Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const a2aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const a2bases = [2, 2.2];
+const a2Cost = new ExponentialCost(300, Math.log2(2.8));
+const a2aCost = new ExponentialCost(300, Math.log2(4));
+const a2bases = [1.4, 2.2];
 /** @param {number} level @returns {BigNumber} */
 var getA2 = (level) => BigNumber.from(a2bases[a2baseMs.level]).pow(level);
 
-const a3Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const a3aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const a3bases = [2, 2.2];
+const a3Cost = new ExponentialCost(1000, Math.log2(4));
+const a3aCost = new ExponentialCost(1000, Math.log2(8));
+const a3bases = [1.4, 2.2];
 /** @param {number} level @returns {BigNumber} */
 var getA3 = (level) => BigNumber.from(a3bases[a3baseMs.level]).pow(level);
 
-const b0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const b0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const b0bases = [1.2, 1.4];
+const b0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1e6)));
+const b0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(2.6)));
+const b0bases = [1.6, 1.8];
 /** @param {number} level @returns {BigNumber} */
 var getB0 = (level) => BigNumber.from(b0bases[b0baseMs.level]).pow(level) - ONE;
 
-const b1Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const b1aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const b1bases = [1.2, 1.4];
+const b1Cost = new FirstFreeCost(new ExponentialCost(20, Math.log2(5)));
+const b1aCost = new FirstFreeCost(new ExponentialCost(20, Math.log2(3.2)));
+const b1bases = [1.6, 1.8];
 /** @param {number} level @returns {BigNumber} */
 var getB1 = (level) => BigNumber.from(b1bases[b1baseMs.level]).pow(level) - ONE;
 
-const b2Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const b2aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1.01)));
-const b2bases = [2, 2.2];
+const b2Cost = new FirstFreeCost(new ExponentialCost(30, Math.log2(8)));
+const b2aCost = new FirstFreeCost(new ExponentialCost(30, Math.log2(4.4)));
+const b2bases = [1.6, 2.2];
 /** @param {number} level @returns {BigNumber} */
 var getB2 = (level) => BigNumber.from(b2bases[b2baseMs.level]).pow(level) - ONE;
 
@@ -282,6 +285,8 @@ var getPublicationMultiplier = (tau) => tau.pow(pubMultExp);
 var getPublicationMultiplierFormula = (symbol) => `{${symbol}}^{${pubMultExp}}`;
 
 var getTau = () => (rhoUnlock.level > 0 ? currencyRho.value.pow(rhoExponent) : ONE) * maxh.pow(maxhExponent);
+var getTau2 = () => (rhoUnlock.level > 0 ? maxrho.pow(rhoExponent) : ONE) * maxh.pow(maxhExponent);
+//var getTau = () => BigNumber.from('1e600');
 
 var getMilestoneCostReduction = () => maxh + ONE;
 
@@ -422,15 +427,19 @@ var switchMode = () => {
     a0.level = 0;
     a1.level = 0;
     a2.level = 0;
+    a3.level = 0
     b0.level = 0;
     b1.level = 0;
+    b2.level = 0
 
     q1a.level = 0;
     a0a.level = 0;
     a1a.level = 0;
     a2a.level = 0;
+    a3a.level = 0
     b0a.level = 0;
     b1a.level = 0;
+    b2a.level = 0
 
     rhodot = ZERO;
     alphadot = ZERO;
@@ -590,6 +599,16 @@ var init = () => {
         hTermPerma.maxLevel = 1;
     }
 
+    {
+        pubTimeOverlay = theory.createPermanentUpgrade(50, currencyAlpha, new FreeCost);
+        pubTimeOverlay.getDescription = () => `Publication time: ${getTimeString(pubTime)}`;
+        pubTimeOverlay.info = "Elapsed time since the last publication";
+        pubTimeOverlay.boughtOrRefunded = (_) =>
+        {
+            pubTimeOverlay.level = 0;
+        }
+    }
+
     ///////////////////////
     //// True Milestone Upgrades
 
@@ -731,8 +750,14 @@ var updateAvailability = () => {
 }
 
 var tick = (elapsedTime, multiplier) => {
+    if (q1.level + q1a.level == 0) {
+        return;
+    }
+
     const dt = elapsedTime * multiplier;
     const bonus = theory.publicationMultiplier;
+
+    pubTime += elapsedTime;
 
     const vq1 = getQ1((alphaMode ? q1a : q1).level);
 
@@ -770,6 +795,8 @@ var tick = (elapsedTime, multiplier) => {
         currencyRho.value += rhodot * elapsedTime;
     }
 
+    maxrho = maxrho.max(currencyRho.value);
+
     if (totalMilestonePoints < milestoneCount 
         && theory.tau >= milestoneCosts[totalMilestonePoints] / getMilestoneCostReduction()
     ) {
@@ -786,6 +813,8 @@ var postPublish = () => {
     currencyAlpha.value = ZERO;
     q = ONE;
     maxh = ZERO;
+    maxrho = 0;
+    pubTime = 0;
 
     rhodot = ZERO;
     alphadot = ZERO;
@@ -804,7 +833,8 @@ var getInternalState = () => JSON.stringify({
     totalMilestonePoints,
     maxh: maxh.toBase64String(),
     maxMilestoneThreshold: maxMilestoneThreshold.toBase64String(),
-    q: q.toBase64String()
+    q: q.toBase64String(),
+    pubTime
 })
 
 var setInternalState = (stateStr) => {
@@ -824,6 +854,7 @@ var setInternalState = (stateStr) => {
     maxh = parseBigNumBSF(state.maxh, ZERO);
     maxMilestoneThreshold = parseBigNumBSF(state.maxMilestoneThreshold, ZERO);
     q = parseBigNumBSF(state.q, ZERO);
+    pubTime = state.pubTime ?? 0;
 }
 
 /////
@@ -1252,7 +1283,7 @@ var getSecondaryEquation = () => {
         return result;
     }
 
-    theory.secondaryEquationHeight = 90;
+    theory.secondaryEquationHeight = 100;
     theory.secondaryEquationScale = 1.25;
 
     let k = "{a_1}x + a_0";
@@ -1289,7 +1320,7 @@ var getTertiaryEquation = () => {
     result += `q=${q} \\\\`;
     result += `h(\\phi)=${cur_h}, \\max{h(\\phi)} = ${maxh}`;
     if (!alphaMode) {
-        result += `\\\\ \\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}} = ${getTau()}`;
+        result += `\\\\ \\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}} = ${getTau2()}`;
     }
 
     return result;
