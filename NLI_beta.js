@@ -285,7 +285,7 @@ var getPublicationMultiplier = (tau) => tau.pow(pubMultExp);
 var getPublicationMultiplierFormula = (symbol) => `{${symbol}}^{${pubMultExp}}`;
 
 var getTau = () => (rhoUnlock.level > 0 ? currencyRho.value.pow(rhoExponent) : ONE) * maxh.pow(maxhExponent);
-var getTau2 = () => (rhoUnlock.level > 0 ? maxrho.pow(rhoExponent) : ONE) * maxh.pow(maxhExponent);
+var getTauFromMaxRho = () => (rhoUnlock.level > 0 ? maxrho.pow(rhoExponent) : ONE) * maxh.pow(maxhExponent);
 //var getTau = () => BigNumber.from('1e600');
 
 var getMilestoneCostReduction = () => maxh + ONE;
@@ -813,7 +813,7 @@ var postPublish = () => {
     currencyAlpha.value = ZERO;
     q = ONE;
     maxh = ZERO;
-    maxrho = 0;
+    maxrho = ZERO;
     pubTime = 0;
 
     rhodot = ZERO;
@@ -834,7 +834,8 @@ var getInternalState = () => JSON.stringify({
     maxh: maxh.toBase64String(),
     maxMilestoneThreshold: maxMilestoneThreshold.toBase64String(),
     q: q.toBase64String(),
-    pubTime
+    pubTime,
+    maxrho: maxrho.toBase64String()
 })
 
 var setInternalState = (stateStr) => {
@@ -855,6 +856,7 @@ var setInternalState = (stateStr) => {
     maxMilestoneThreshold = parseBigNumBSF(state.maxMilestoneThreshold, ZERO);
     q = parseBigNumBSF(state.q, ZERO);
     pubTime = state.pubTime ?? 0;
+    maxrho = parseBigNumBSF(maxrho, ZERO);
 }
 
 /////
@@ -1320,7 +1322,7 @@ var getTertiaryEquation = () => {
     result += `q=${q} \\\\`;
     result += `h(\\phi)=${cur_h}, \\max{h(\\phi)} = ${maxh}`;
     if (!alphaMode) {
-        result += `\\\\ \\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}} = ${getTau2()}`;
+        result += `\\\\ \\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}} = ${getTauFromMaxRho()}`;
     }
 
     return result;
