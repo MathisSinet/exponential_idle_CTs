@@ -848,7 +848,19 @@ var setInternalState = (stateStr) => {
      * @param {String} str 
      * @param {BigNumber} defaultValue
      */
-    const parseBigNumBSF = (str, defaultValue) => (str ? BigNumber.fromBase64String(str) : defaultValue);
+    const parseBigNumBSF = (str, defaultValue) => {
+        if (str) {
+            try {
+                return BigNumber.fromBase64String(str);
+            }
+            catch {
+                return defaultValue;
+            }
+        }
+        else {
+            return defaultValue;
+        }
+    };
 
     const state = JSON.parse(stateStr);
 
@@ -859,7 +871,7 @@ var setInternalState = (stateStr) => {
     maxMilestoneThreshold = parseBigNumBSF(state.maxMilestoneThreshold, ZERO);
     q = parseBigNumBSF(state.q, ZERO);
     pubTime = state.pubTime ?? 0;
-    maxrho = parseBigNumBSF(maxrho, ZERO);
+    maxrho = parseBigNumBSF(state.maxrho, ZERO);
 }
 
 /////
