@@ -208,14 +208,14 @@ const rhoExponent = 0.4;
 const maxhExponent = 0.4;
 
 // Perma Upgrade Costs
-const pubUnlockCost = 0;
-const rhoUnlockCost = 0;
+const pubUnlockCost = 1e5;
+const rhoUnlockCost = 1e8;
 const kTermCosts = bigNumArray([
-    '0',
-    '0'
+    '1e100',
+    '1e200'
 ])
 const hTermCosts = bigNumArray([
-    '0'
+    '1e150'
 ])
 
 const trueMilestoneCosts = bigNumArray([10, 12, 15])
@@ -730,12 +730,15 @@ var updateAvailability = () => {
     autobuyMs.isAvailable = buyAllMs.level > 0;
 
     // Upgrades
-    for (var v of [q1,a0,a1,a2,a3,b0,b1,b2]) {
+    for (var v of [q1,a0,a1,a2,a3,b1,b2]) {
         v.isAvailable = !alphaMode;
     }
-    for (var v of [q1a,a0a,a1a,a2a,a3a,b0a,b1a,b2a]) {
+    for (var v of [q1a,a1a,a2a,a3a,b0a,b1a,b2a]) {
         v.isAvailable = alphaMode;
     }
+
+    b0.isAvailable = false;
+    a0a.isAvailable = false;
 
     a2.isAvailable &&= kTermPerma.level > 0;
     a2a.isAvailable &&= kTermPerma.level > 0;
