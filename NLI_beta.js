@@ -827,6 +827,7 @@ var postPublish = () => {
     theory.invalidatePrimaryEquation();
     theory.invalidateSecondaryEquation();
     theory.invalidateTertiaryEquation();
+    updateAvailability();
 }
 
 var getInternalState = () => JSON.stringify({
