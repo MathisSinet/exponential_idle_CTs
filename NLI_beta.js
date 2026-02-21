@@ -1310,7 +1310,7 @@ var getSecondaryEquation = () => {
     if (mainEquationPressed) {
         result += "\\phi = \\frac{1+\\sqrt{5}}{2} \\\\";
         result += `\\text{Lifetime } h(\\phi) = ${lifetime_h} \\\\`;
-        result += `\\text{Lifetime } \\rho = ${lifetime_rho}`;
+        if (rhoUnlock.level > 0) result += `\\text{Lifetime } \\rho = ${lifetime_rho}`;
         return result;
     }
 
