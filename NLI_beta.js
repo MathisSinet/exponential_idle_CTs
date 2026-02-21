@@ -99,7 +99,6 @@ var pubTime = 0;
 
 let milestonesAvailable = 0;
 let totalMilestonePoints = 0;
-let maxMilestoneThreshold = ZERO;
 
 // Currencies
 /** @type {Currency} */
@@ -189,6 +188,9 @@ var a3baseMs;
 var rhodot = ZERO;
 var alphadot = ZERO;
 var cur_h = ZERO;
+
+let lifetime_h = ZERO;
+let lifetime_rho = ZERO;
 
 var mainEquationPressed = false;
 var milestoneInfoPressed = false;
@@ -786,6 +788,7 @@ var tick = (elapsedTime, multiplier) => {
 
     cur_h = evalp(h, PHI);
     maxh = maxh.max(cur_h);
+    lifetime_h = lifetime_h.max(maxh);
 
     if (alphaMode) {
         const integral = rspInt(h, k, ZERO, q);
@@ -799,6 +802,7 @@ var tick = (elapsedTime, multiplier) => {
     }
 
     maxrho = maxrho.max(currencyRho.value);
+    lifetime_rho = lifetime_rho.max(maxrho);
 
     if (totalMilestonePoints < milestoneCount 
         && theory.tau >= milestoneCosts[totalMilestonePoints] / getMilestoneCostReduction()
@@ -836,10 +840,11 @@ var getInternalState = () => JSON.stringify({
     milestonesAvailable,
     totalMilestonePoints,
     maxh: maxh.toBase64String(),
-    maxMilestoneThreshold: maxMilestoneThreshold.toBase64String(),
     q: q.toBase64String(),
     pubTime,
-    maxrho: maxrho.toBase64String()
+    maxrho: maxrho.toBase64String(),
+    lifetime_h: lifetime_h.toString(),
+    lifetime_rho: lifetime_rho.toString()
 })
 
 var setInternalState = (stateStr) => {
@@ -863,16 +868,22 @@ var setInternalState = (stateStr) => {
         }
     };
 
+    const parseBigNum = (str, defaultValue) => {
+        if (str) return BigNumber.from(str);
+        else return defaultValue;
+    }
+
     const state = JSON.parse(stateStr);
 
     alphaMode = state.alphaMode ?? false;
     milestonesAvailable = state.milestonesAvailable ?? 0;
     totalMilestonePoints = state.totalMilestonePoints ?? 0;
     maxh = parseBigNumBSF(state.maxh, ZERO);
-    maxMilestoneThreshold = parseBigNumBSF(state.maxMilestoneThreshold, ZERO);
     q = parseBigNumBSF(state.q, ZERO);
     pubTime = state.pubTime ?? 0;
     maxrho = parseBigNumBSF(state.maxrho, ZERO);
+    lifetime_h = parseBigNum(state.lifetime_h, ZERO);
+    lifetime_rho = parseBigNum(state.lifetime_rho, ZERO);
 }
 
 /////
@@ -1297,7 +1308,9 @@ var getSecondaryEquation = () => {
     let result = ``;
 
     if (mainEquationPressed) {
-        result += "\\phi = \\frac{1+\\sqrt{5}}{2}";
+        result += "\\phi = \\frac{1+\\sqrt{5}}{2} \\\\";
+        result += `\\text{Lifetime } h(\\phi) = ${lifetime_h} \\\\`;
+        result += `\\text{Lifetime } \\rho = ${lifetime_rho}`;
         return result;
     }
 
