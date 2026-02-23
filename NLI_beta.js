@@ -222,7 +222,7 @@ const hTermCosts = bigNumArray([
     '1e150'
 ])
 const msLevelIncreaseCosts = bigNumArray([
-    '1e50',
+    '1e100',
     '1e150',
     '1e250',
     '1e350',
@@ -232,19 +232,19 @@ const msLevelIncreaseCosts = bigNumArray([
 
 const trueMilestoneCosts = bigNumArray([
     8, // ms menu
-    12, // buy all
-    15 // autobuy
+    10, // buy all
+    12 // autobuy
 ])
 
 const milestoneCosts = bigNumArray([
-    '1e30',
-    '1e50',
-    '1e70',
-    '1e90',
-    '1e110',
+    '1e60',
+    '1e75',
+    '1e85',
+    '1e90', // group 1
     '1e130',
     '1e140',
     '1e150',
+    '1e160',
     '1e170'
 ]);
 
