@@ -150,6 +150,8 @@ var rhoUnlock;
 var kTermPerma;
 /** @type {Upgrade} */
 var hTermPerma;
+/** @type {Upgrade} */
+var msLevelIncreasePerma;
 
 /** @type {Upgrade} hidden */
 var buyAllPerma;
@@ -211,7 +213,7 @@ const maxhExponent = 0.4;
 
 // Perma Upgrade Costs
 const pubUnlockCost = 1e5;
-const rhoUnlockCost = 1e8;
+const rhoUnlockCost = 1e20;
 const kTermCosts = bigNumArray([
     '1e100',
     '1e200'
@@ -219,8 +221,20 @@ const kTermCosts = bigNumArray([
 const hTermCosts = bigNumArray([
     '1e150'
 ])
+const msLevelIncreaseCosts = bigNumArray([
+    '1e50',
+    '1e150',
+    '1e250',
+    '1e350',
+    '1e450',
+    '1e550' // lv 6 optional
+])
 
-const trueMilestoneCosts = bigNumArray([10, 12, 15])
+const trueMilestoneCosts = bigNumArray([
+    8, // ms menu
+    12, // buy all
+    15 // autobuy
+])
 
 const milestoneCosts = bigNumArray([
     '1e30',
@@ -236,49 +250,49 @@ const milestoneCosts = bigNumArray([
 
 const milestoneCount = milestoneCosts.length;
 
-const q1Cost = new FirstFreeCost(new ExponentialCost(100, Math.log2(30)));
-const q1aCost = new FirstFreeCost(new ExponentialCost(100, Math.log2(30)));
+const q1Cost = new FirstFreeCost(new ExponentialCost(1000, Math.log2(31.2)));
+const q1aCost = new FirstFreeCost(new ExponentialCost(1000, Math.log2(31.2)));
 var getQ1 = (level) => BigNumber.TWO.pow(level) - ONE;
 
-const a0Cost = new ExponentialCost(30, Math.log2(2));
-const a0aCost = new ExponentialCost(30, Math.log2(1e6));
-const a0bases = [1.4, 1.8];
+const a0Cost = new ExponentialCost(100, Math.log2(1.891));
+const a0aCost = new ExponentialCost(50, Math.log2(1e6)); // UNUSED
+const a0bases = [1.35, 1.375, 1.4, 1.425, 1.45];
 /** @param {number} level @returns {BigNumber} */
 var getA0 = (level) => BigNumber.from(a0bases[a0baseMs.level]).pow(level);
 
-const a1Cost = new ExponentialCost(100, Math.log2(2.3));
-const a1aCost = new ExponentialCost(100, Math.log2(2.8));
-const a1bases = [1.4, 1.8];
+const a1Cost = new ExponentialCost(2500, Math.log2(2.38));
+const a1aCost = new ExponentialCost(100, Math.log2(3.934));
+const a1bases = [1.45, 1.475, 1.5, 1.525, 1.55];
 /** @param {number} level @returns {BigNumber} */
 var getA1 = (level) => BigNumber.from(a1bases[a1baseMs.level]).pow(level);
 
-const a2Cost = new ExponentialCost(300, Math.log2(2.8));
-const a2aCost = new ExponentialCost(300, Math.log2(4));
-const a2bases = [1.4, 2.2];
+const a2Cost = new ExponentialCost(1e5, Math.log2(2.873));
+const a2aCost = new ExponentialCost(1e5, Math.log2(5.5));
+const a2bases = [1.4, 1.44, 1.48, 1.52, 1.57];
 /** @param {number} level @returns {BigNumber} */
 var getA2 = (level) => BigNumber.from(a2bases[a2baseMs.level]).pow(level);
 
-const a3Cost = new ExponentialCost(1000, Math.log2(4));
-const a3aCost = new ExponentialCost(1000, Math.log2(8));
-const a3bases = [1.4, 2.2];
+const a3Cost = new ExponentialCost(1e8, Math.log2(3.315));
+const a3aCost = new ExponentialCost(1e8, Math.log2(30));
+const a3bases = [1.5, 1.505, 1.51, 1.515, 1.52];
 /** @param {number} level @returns {BigNumber} */
 var getA3 = (level) => BigNumber.from(a3bases[a3baseMs.level]).pow(level);
 
-const b0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1e6)));
-const b0aCost = new FirstFreeCost(new ExponentialCost(10, Math.log2(2.6)));
-const b0bases = [1.6, 1.8];
+const b0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1e6))); // UNUSED
+const b0aCost = new FirstFreeCost(new ExponentialCost(300, Math.log2(2.58)));
+const b0bases = [1.55, 1.59, 1.63, 1.67, 1.7];
 /** @param {number} level @returns {BigNumber} */
 var getB0 = (level) => BigNumber.from(b0bases[b0baseMs.level]).pow(level) - ONE;
 
-const b1Cost = new FirstFreeCost(new ExponentialCost(20, Math.log2(5)));
-const b1aCost = new FirstFreeCost(new ExponentialCost(20, Math.log2(3.2)));
-const b1bases = [1.6, 1.8];
+const b1Cost = new FirstFreeCost(new ExponentialCost(1e5, Math.log2(11.1)));
+const b1aCost = new FirstFreeCost(new ExponentialCost(1e4, Math.log2(3.65)));
+const b1bases = [1.65, 1.675, 1.7, 1.725, 1.75];
 /** @param {number} level @returns {BigNumber} */
 var getB1 = (level) => BigNumber.from(b1bases[b1baseMs.level]).pow(level) - ONE;
 
-const b2Cost = new FirstFreeCost(new ExponentialCost(30, Math.log2(8)));
-const b2aCost = new FirstFreeCost(new ExponentialCost(30, Math.log2(4.4)));
-const b2bases = [1.6, 2.2];
+const b2Cost = new FirstFreeCost(new ExponentialCost(1e10, Math.log2(22.4)));
+const b2aCost = new FirstFreeCost(new ExponentialCost(1e7, Math.log2(4.55)));
+const b2bases = [1.6, 1.605, 1.61, 1.615, 1.62];
 /** @param {number} level @returns {BigNumber} */
 var getB2 = (level) => BigNumber.from(b2bases[b2baseMs.level]).pow(level) - ONE;
 
@@ -286,11 +300,10 @@ var getPublicationMultiplier = (tau) => tau.pow(pubMultExp);
 
 var getPublicationMultiplierFormula = (symbol) => `{${symbol}}^{${pubMultExp}}`;
 
-var getTau = () => (rhoUnlock.level > 0 ? currencyRho.value.pow(rhoExponent) : ONE) * maxh.pow(maxhExponent);
-var getTauFromMaxRho = () => (rhoUnlock.level > 0 ? maxrho.pow(rhoExponent) : ONE) * maxh.pow(maxhExponent);
+var getTau = () => (rhoUnlock.level > 0 ? maxrho.pow(rhoExponent) : ONE) * maxh.pow(maxhExponent);
 //var getTau = () => BigNumber.from('1e600');
 
-var getMilestoneCostReduction = () => maxh + ONE;
+var getMilestoneCostReduction = () => maxh.pow(4) + ONE;
 
 //var getCurrencyFromTau = (tau) => [value, symbol];
 
@@ -600,6 +613,22 @@ var init = () => {
         }
         hTermPerma.maxLevel = 1;
     }
+    {
+        const upgraded = [
+            "variables $a_0$, $b_0$, $a_1$, $b_1$, $a_2$", // lv 1
+            "variables $a_0$, $b_0$, $a_1$, $b_1$, $a_2$, $b_2$", // lv 2
+            "variables $a_0$, $b_0$, $a_1$, $b_1$, $a_2$, $b_2$, $a_3$", // lv 3
+            "variables $a_2$, $b_2$, $a_3$", // lv 4
+            "variables $b_2$, $a_3$", // lv 5
+            "$a_3$", // level 6
+            "$a_3$" // maxed
+        ]
+        msLevelIncreasePerma = theory.createPermanentUpgrade(6, currencyAlpha, new CustomCost((level) => msLevelIncreaseCosts[level] || BigNumber.from("ee5")));
+        msLevelIncreasePerma.getDescription = () => "Increase the max level of base increase milestones";
+        msLevelIncreasePerma.getInfo = () => `Increase the max level of the base increase milestone for ${upgraded[msLevelIncreasePerma.level]} by 1`;
+        msLevelIncreasePerma.boughtOrRefunded = (_) => updateAvailability();
+        msLevelIncreasePerma.maxLevel = 6;
+    }
 
     {
         pubTimeOverlay = theory.createPermanentUpgrade(50, currencyAlpha, new FreeCost);
@@ -654,9 +683,9 @@ var init = () => {
      */
     var makeBaseUpgrade = (upgrade, upgradeName, bases) => {
         upgrade.getDescription = (_) => Localization.getUpgradeIncCustomDesc(`${upgradeName} \\text{ base}`, `${
-            upgrade.level < upgrade.maxLevel ? r5(bases[upgrade.level + 1] - bases[upgrade.level]) : 0
+            upgrade.level < bases.length ? r5(bases[upgrade.level + 1] - bases[upgrade.level]) : 0
         }`)
-        upgrade.getInfo = (_) => `$${upgradeName}$ base: ` + (upgrade.level < upgrade.maxLevel 
+        upgrade.getInfo = (_) => `$${upgradeName}$ base: ` + (upgrade.level < bases.length
             ? Utils.getMathTo(`${bases[upgrade.level]}`, `${bases[upgrade.level + 1]}`)
             : Utils.getMath(`${bases[upgrade.level]}`));
         upgrade.boughtOrRefunded = () => updateAvailability();
@@ -664,37 +693,37 @@ var init = () => {
 
     
     {
-        b1baseMs = new CustomMilestoneUpgrade(0, 1);
-        makeBaseUpgrade(b1baseMs, "b_1", b1bases);
-        b1baseMs.canBeRefunded = () => true;
-    }
-    {
-        a1baseMs = new CustomMilestoneUpgrade(1, 1);
+        a1baseMs = new CustomMilestoneUpgrade(0, 4);
         makeBaseUpgrade(a1baseMs, "a_1", a1bases);
         a1baseMs.canBeRefunded = () => true;
     }
     {
-        b0baseMs = new CustomMilestoneUpgrade(2, 1);
-        makeBaseUpgrade(b0baseMs, "b_0", b0bases);
-        b0baseMs.canBeRefunded = () => true;
+        b1baseMs = new CustomMilestoneUpgrade(1, 4);
+        makeBaseUpgrade(b1baseMs, "b_1", b1bases);
+        b1baseMs.canBeRefunded = () => true;
     }
     {
-        a0baseMs = new CustomMilestoneUpgrade(3, 1);
+        a0baseMs = new CustomMilestoneUpgrade(2, 4);
         makeBaseUpgrade(a0baseMs, "a_0", a0bases);
         a0baseMs.canBeRefunded = () => true;
     }
     {
-        b2baseMs = new CustomMilestoneUpgrade(4, 1);
-        makeBaseUpgrade(b2baseMs, "b_2", b2bases);
-        b2baseMs.canBeRefunded = () => true;
+        b0baseMs = new CustomMilestoneUpgrade(3, 4);
+        makeBaseUpgrade(b0baseMs, "b_0", b0bases);
+        b0baseMs.canBeRefunded = () => true;
     }
     {
-        a2baseMs = new CustomMilestoneUpgrade(5, 1);
+        a2baseMs = new CustomMilestoneUpgrade(4, 4);
         makeBaseUpgrade(a2baseMs, "a_2", a2bases);
         a2baseMs.canBeRefunded = () => true;
     }
     {
-        a3baseMs = new CustomMilestoneUpgrade(6, 1);
+        b2baseMs = new CustomMilestoneUpgrade(5, 4);
+        makeBaseUpgrade(b2baseMs, "b_2", b2bases);
+        b2baseMs.canBeRefunded = () => true;
+    }
+    {
+        a3baseMs = new CustomMilestoneUpgrade(6, 4);
         makeBaseUpgrade(a3baseMs, "a_3", a3bases);
         a3baseMs.canBeRefunded = () => true;
     }
@@ -720,6 +749,7 @@ var init = () => {
 
             kTermPerma.refund(-1);
             hTermPerma.refund(-1);
+            msLevelIncreasePerma.refund(-1);
         }
     }
     
@@ -751,7 +781,19 @@ var updateAvailability = () => {
     b2.isAvailable &&= hTermPerma.level > 0;
     b2a.isAvailable &&= hTermPerma.level > 0;
 
-    b0baseMs.isAvailable = true;
+    a0baseMs.maxLevel = Math.min(4, 1 + msLevelIncreasePerma.level);
+    b0baseMs.maxLevel = Math.min(4, 1 + msLevelIncreasePerma.level);
+    a1baseMs.maxLevel = Math.min(4, 1 + msLevelIncreasePerma.level);
+    b1baseMs.maxLevel = Math.min(4, 1 + msLevelIncreasePerma.level);
+
+    a2baseMs.isAvailable = kTermPerma.level > 0;
+    a2baseMs.maxLevel = Math.min(4, msLevelIncreasePerma.level);
+
+    b2baseMs.isAvailable = hTermPerma.level > 0;
+    b2baseMs.maxLevel = Math.max(Math.min(4, msLevelIncreasePerma.level - 1), 0);
+
+    a3baseMs.isAvailable = kTermPerma.level > 1;
+    a3baseMs.maxLevel = Math.max(Math.min(4, msLevelIncreasePerma.level - 2), 0);
 }
 
 var tick = (elapsedTime, multiplier) => {
@@ -1225,7 +1267,7 @@ var createMilestoneMenu = () => {
                 // Cost reduction formula
                 ui.createLatexLabel({
                     margin: new Thickness(0, 0, 0, 6),
-                    text: Utils.getMath("\\text{Milestone cost reduction: } R = 1 + f(\\max{h(\\phi)})"),
+                    text: Utils.getMath("\\text{Milestone cost reduction: } R = 1 + \\max{h(\\phi)}^{4}"),
                     horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER
                 }),
@@ -1351,7 +1393,7 @@ var getTertiaryEquation = () => {
     result += `q=${q} \\\\`;
     result += `h(\\phi)=${cur_h}, \\max{h(\\phi)} = ${maxh}`;
     if (!alphaMode) {
-        result += `\\\\ \\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}} = ${getTauFromMaxRho()}`;
+        result += `\\\\ \\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}} = ${getTau()}`;
     }
 
     return result;
