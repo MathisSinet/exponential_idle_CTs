@@ -213,7 +213,7 @@ const maxhExponent = 0.4;
 
 // Perma Upgrade Costs
 const pubUnlockCost = 1e5;
-const rhoUnlockCost = 1e20;
+const rhoUnlockCost = 1e18;
 const kTermCosts = bigNumArray([
     '1e100',
     '1e200'
@@ -254,13 +254,13 @@ const q1Cost = new FirstFreeCost(new ExponentialCost(1000, Math.log2(31.2)));
 const q1aCost = new FirstFreeCost(new ExponentialCost(1000, Math.log2(31.2)));
 var getQ1 = (level) => BigNumber.TWO.pow(level) - ONE;
 
-const a0Cost = new ExponentialCost(100, Math.log2(1.891));
+const a0Cost = new ExponentialCost(20, Math.log2(1.891));
 const a0aCost = new ExponentialCost(50, Math.log2(1e6)); // UNUSED
 const a0bases = [1.35, 1.375, 1.4, 1.425, 1.45];
 /** @param {number} level @returns {BigNumber} */
 var getA0 = (level) => BigNumber.from(a0bases[a0baseMs.level]).pow(level);
 
-const a1Cost = new ExponentialCost(2500, Math.log2(2.38));
+const a1Cost = new ExponentialCost(1e5, Math.log2(2.38));
 const a1aCost = new ExponentialCost(100, Math.log2(3.934));
 const a1bases = [1.45, 1.475, 1.5, 1.525, 1.55];
 /** @param {number} level @returns {BigNumber} */
