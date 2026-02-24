@@ -224,7 +224,7 @@ const hTermCosts = bigNumArray([
 const msLevelIncreaseCosts = bigNumArray([
     '1e60',
     '1e100',
-    '1e150',
+    '1e160',
     '1e470',
     '1e620',
     '1e770'
@@ -239,38 +239,39 @@ const trueMilestoneCosts = bigNumArray([
 const milestoneCosts = bigNumArray([
     '1e60',
     '1e80',
-    '1e85',
     '1e90', // group 1
 
     '1e180',
+    '1e200',
     '1e210',
-    '1e220',
-    '1e230',
-    '1e240', // group 2
+    '1e220', // group 2
 
-    '1e310',
+    '1e300',
     '1e320',
     '1e330',
     '1e340',
-    '1e350',
-    '1e360', // group 3
+    '1e350', // group 3
 
     '1e800',
     '1e850',
     '1e900',
     '1e925',
     '1e950',
-    '1e975',
     '1e1000', // group 4
 
     '1e1400',
     '1e1500',
     '1e1600', // group 5
 
-    '1e1700',
-    '1e1800', // group 6
+    '1e1800',
+    '1e1900', // group 6
 
     '1e2300', // group 7
+
+    '1e2700',
+    '1e2800',
+    '1e2900',
+    '1e3000'
 ]);
 
 const milestoneCount = milestoneCosts.length;
@@ -757,26 +758,26 @@ var init = () => {
     ///////////////////
     //// Debug Upgrades
 
-    {
-        debugResetMilestonesUpgrade = theory.createPermanentUpgrade(500, currencyRho, new FreeCost);
-        debugResetMilestonesUpgrade.description = "[Debug] reset milestones";
-        debugResetMilestonesUpgrade.boughtOrRefunded = (_) => {
-            debugResetMilestonesUpgrade.level = 0;
-            for (let msUpgrade of milestoneArray) {
-                msUpgrade.level = 0;
-                msUpgrade.boughtOrRefunded();
-                milestonesAvailable = 0;
-                totalMilestonePoints = 0;
-            }
-            milestoneMenuUnlock.level = 0;
-            buyAllMs.level = 0;
-            autobuyMs.level = 0;
-
-            kTermPerma.refund(-1);
-            hTermPerma.refund(-1);
-            msLevelIncreasePerma.refund(-1);
-        }
-    }
+    //{
+    //    debugResetMilestonesUpgrade = theory.createPermanentUpgrade(500, currencyRho, new FreeCost);
+    //    debugResetMilestonesUpgrade.description = "[Debug] reset milestones";
+    //    debugResetMilestonesUpgrade.boughtOrRefunded = (_) => {
+    //        debugResetMilestonesUpgrade.level = 0;
+    //        for (let msUpgrade of milestoneArray) {
+    //            msUpgrade.level = 0;
+    //            msUpgrade.boughtOrRefunded();
+    //            milestonesAvailable = 0;
+    //            totalMilestonePoints = 0;
+    //        }
+    //        milestoneMenuUnlock.level = 0;
+    //        buyAllMs.level = 0;
+    //        autobuyMs.level = 0;
+    //
+    //        kTermPerma.refund(-1);
+    //        hTermPerma.refund(-1);
+    //        msLevelIncreasePerma.refund(-1);
+    //    }
+    //}
     
     updateAvailability();
 }
