@@ -58,13 +58,13 @@ const locStrings =
 };
 
 // From RZ's code
-const menuLang = Localization.language;
+const language = Localization.language;
 /**
  * Returns a localised string.
  * @param {string} name the internal name of the string.
  * @returns {string} the string.
  */
-let getLoc = (name, lang = menuLang) =>
+let getLoc = (name, lang = language) =>
 {
     if(lang in locStrings && name in locStrings[lang])
         return locStrings[lang][name];
@@ -213,21 +213,21 @@ const maxhExponent = 0.4;
 
 // Perma Upgrade Costs
 const pubUnlockCost = 1e5;
-const rhoUnlockCost = 1e18;
+const rhoUnlockCost = 1e16;
 const kTermCosts = bigNumArray([
-    '1e100',
-    '1e200'
+    '1e50',
+    '1e140'
 ])
 const hTermCosts = bigNumArray([
-    '1e150'
+    '1e90'
 ])
 const msLevelIncreaseCosts = bigNumArray([
+    '1e60',
     '1e100',
     '1e150',
-    '1e250',
-    '1e350',
-    '1e450',
-    '1e550' // lv 6 optional
+    '1e470',
+    '1e620',
+    '1e770'
 ])
 
 const trueMilestoneCosts = bigNumArray([
@@ -238,14 +238,39 @@ const trueMilestoneCosts = bigNumArray([
 
 const milestoneCosts = bigNumArray([
     '1e60',
-    '1e75',
+    '1e80',
     '1e85',
     '1e90', // group 1
-    '1e130',
-    '1e140',
-    '1e150',
-    '1e160',
-    '1e170'
+
+    '1e180',
+    '1e210',
+    '1e220',
+    '1e230',
+    '1e240', // group 2
+
+    '1e310',
+    '1e320',
+    '1e330',
+    '1e340',
+    '1e350',
+    '1e360', // group 3
+
+    '1e800',
+    '1e850',
+    '1e900',
+    '1e925',
+    '1e950',
+    '1e975',
+    '1e1000', // group 4
+
+    '1e1400',
+    '1e1500',
+    '1e1600', // group 5
+
+    '1e1700',
+    '1e1800', // group 6
+
+    '1e2300', // group 7
 ]);
 
 const milestoneCount = milestoneCosts.length;
@@ -254,45 +279,45 @@ const q1Cost = new FirstFreeCost(new ExponentialCost(1000, Math.log2(31.2)));
 const q1aCost = new FirstFreeCost(new ExponentialCost(1000, Math.log2(31.2)));
 var getQ1 = (level) => BigNumber.TWO.pow(level) - ONE;
 
-const a0Cost = new ExponentialCost(20, Math.log2(1.891));
+const a0Cost = new ExponentialCost(50, Math.log2(1.891));
 const a0aCost = new ExponentialCost(50, Math.log2(1e6)); // UNUSED
-const a0bases = [1.35, 1.375, 1.4, 1.425, 1.45];
+const a0bases = [1.39, 1.4, 1.41, 1.42, 1.43];
 /** @param {number} level @returns {BigNumber} */
 var getA0 = (level) => BigNumber.from(a0bases[a0baseMs.level]).pow(level);
 
-const a1Cost = new ExponentialCost(1e5, Math.log2(2.38));
-const a1aCost = new ExponentialCost(100, Math.log2(3.934));
-const a1bases = [1.45, 1.475, 1.5, 1.525, 1.55];
+const a1Cost = new ExponentialCost(1e4, Math.log2(2.362));
+const a1aCost = new ExponentialCost(80, Math.log2(4.9));
+const a1bases = [1.435, 1.455, 1.475, 1.495, 1.515];
 /** @param {number} level @returns {BigNumber} */
 var getA1 = (level) => BigNumber.from(a1bases[a1baseMs.level]).pow(level);
 
-const a2Cost = new ExponentialCost(1e5, Math.log2(2.873));
-const a2aCost = new ExponentialCost(1e5, Math.log2(5.5));
-const a2bases = [1.4, 1.44, 1.48, 1.52, 1.57];
+const a2Cost = new ExponentialCost(1e4, Math.log2(2.855));
+const a2aCost = new ExponentialCost(1e5, Math.log2(10.15));
+const a2bases = [1.43, 1.455, 1.48, 1.505, 1.53];
 /** @param {number} level @returns {BigNumber} */
 var getA2 = (level) => BigNumber.from(a2bases[a2baseMs.level]).pow(level);
 
-const a3Cost = new ExponentialCost(1e8, Math.log2(3.315));
-const a3aCost = new ExponentialCost(1e8, Math.log2(30));
-const a3bases = [1.5, 1.505, 1.51, 1.515, 1.52];
+const a3Cost = new ExponentialCost(1e8, Math.log2(3.31));
+const a3aCost = new ExponentialCost(1e8, Math.log2(40));
+const a3bases = [1.3, 1.35, 1.4, 1.44, 1.48];
 /** @param {number} level @returns {BigNumber} */
 var getA3 = (level) => BigNumber.from(a3bases[a3baseMs.level]).pow(level);
 
 const b0Cost = new FirstFreeCost(new ExponentialCost(10, Math.log2(1e6))); // UNUSED
-const b0aCost = new FirstFreeCost(new ExponentialCost(300, Math.log2(2.58)));
-const b0bases = [1.55, 1.59, 1.63, 1.67, 1.7];
+const b0aCost = new FirstFreeCost(new ExponentialCost(200, Math.log2(2.54)));
+const b0bases = [1.55, 1.57, 1.59, 1.61, 1.63];
 /** @param {number} level @returns {BigNumber} */
 var getB0 = (level) => BigNumber.from(b0bases[b0baseMs.level]).pow(level) - ONE;
 
-const b1Cost = new FirstFreeCost(new ExponentialCost(1e5, Math.log2(11.1)));
-const b1aCost = new FirstFreeCost(new ExponentialCost(1e4, Math.log2(3.65)));
-const b1bases = [1.65, 1.675, 1.7, 1.725, 1.75];
+const b1Cost = new FirstFreeCost(new ExponentialCost(1e5, Math.log2(11.25)));
+const b1aCost = new FirstFreeCost(new ExponentialCost(3000, Math.log2(3.65)));
+const b1bases = [1.7, 1.72, 1.74, 1.76, 1.78];
 /** @param {number} level @returns {BigNumber} */
 var getB1 = (level) => BigNumber.from(b1bases[b1baseMs.level]).pow(level) - ONE;
 
-const b2Cost = new FirstFreeCost(new ExponentialCost(1e10, Math.log2(22.4)));
-const b2aCost = new FirstFreeCost(new ExponentialCost(1e7, Math.log2(4.55)));
-const b2bases = [1.6, 1.605, 1.61, 1.615, 1.62];
+const b2Cost = new FirstFreeCost(new ExponentialCost(1e10, Math.log2(25.55)));
+const b2aCost = new FirstFreeCost(new ExponentialCost(1e7, Math.log2(4.1)));
+const b2bases = [1.53, 1.57, 1.61, 1.65, 1.68];
 /** @param {number} level @returns {BigNumber} */
 var getB2 = (level) => BigNumber.from(b2bases[b2baseMs.level]).pow(level) - ONE;
 
