@@ -93,9 +93,7 @@ var alphaMode = true;
 
 let q = ONE;
 let maxh = ZERO;
-let maxrho = ZERO;
-
-var pubTime = 0;
+let maxrho = ONE;
 
 let milestonesAvailable = 0;
 let totalMilestonePoints = 0;
@@ -191,15 +189,23 @@ var rhodot = ZERO;
 var alphadot = ZERO;
 var cur_h = ZERO;
 
+var pubTime = 0;
+var swapTime = 0;
+
 let lifetime_h = ZERO;
 let lifetime_rho = ZERO;
 
 var mainEquationPressed = false;
 var milestoneInfoPressed = false;
 
-// Debug
 /** @type {Upgrade} */
-var debugResetMilestonesUpgrade;
+var pubTimeOverlay;
+/** @type {Upgrade} */
+var swapTimeOverlay;
+
+// Debug
+///** @type {Upgrade} */
+//var debugResetMilestonesUpgrade;
 
 //////////
 // Balance
@@ -484,6 +490,7 @@ var switchMode = () => {
 
     rhodot = ZERO;
     alphadot = ZERO;
+    swapTime = 0;
 
     theory.invalidatePrimaryEquation();
     theory.invalidateSecondaryEquation();
@@ -613,6 +620,7 @@ var init = () => {
         rhoUnlock = theory.createPermanentUpgrade(1, currencyAlpha, new ConstantCost(rhoUnlockCost));
         rhoUnlock.getDescription = (_) => Localization.getUpgradeUnlockDesc("\\rho");
         rhoUnlock.getInfo = (_) => "Unlock $\\rho$ and unlock the ability to swap the $k$ and $h$ in the integral";
+        rhoUnlock.boughtOrRefunded = (_) => updateAvailability();
         rhoUnlock.maxLevel = 1;
     }
     buyAllPerma = theory.createBuyAllUpgrade(2, currencyAlpha, 0);
@@ -663,6 +671,16 @@ var init = () => {
         pubTimeOverlay.boughtOrRefunded = (_) =>
         {
             pubTimeOverlay.level = 0;
+        }
+    }
+
+    {
+        swapTimeOverlay  = theory.createPermanentUpgrade(51, currencyAlpha, new FreeCost);
+        swapTimeOverlay.getDescription = () => `Swap time: ${getTimeString(swapTime)}`;
+        swapTimeOverlay.info = "Elapsed time since swapping between $\\alpha$ and $\\rho$";
+        swapTimeOverlay.boughtOrRefunded = (_) =>
+        {
+            swapTimeOverlay.level = 0;
         }
     }
 
@@ -820,6 +838,8 @@ var updateAvailability = () => {
 
     a3baseMs.isAvailable = kTermPerma.level > 1;
     a3baseMs.maxLevel = Math.max(Math.min(4, msLevelIncreasePerma.level - 2), 0);
+
+    swapTimeOverlay.isAvailable = rhoUnlock.level > 0;
 }
 
 var tick = (elapsedTime, multiplier) => {
@@ -831,6 +851,7 @@ var tick = (elapsedTime, multiplier) => {
     const bonus = theory.publicationMultiplier;
 
     pubTime += elapsedTime;
+    swapTime += elapsedTime;
 
     const vq1 = getQ1((alphaMode ? q1a : q1).level);
 
@@ -888,8 +909,9 @@ var postPublish = () => {
     currencyAlpha.value = ZERO;
     q = ONE;
     maxh = ZERO;
-    maxrho = ZERO;
+    maxrho = ONE;
     pubTime = 0;
+    swapTime = 0;
 
     rhodot = ZERO;
     alphadot = ZERO;
@@ -910,6 +932,7 @@ var getInternalState = () => JSON.stringify({
     maxh: maxh.toBase64String(),
     q: q.toBase64String(),
     pubTime,
+    swapTime,
     maxrho: maxrho.toBase64String(),
     lifetime_h: lifetime_h.toString(),
     lifetime_rho: lifetime_rho.toString()
@@ -949,6 +972,7 @@ var setInternalState = (stateStr) => {
     maxh = parseBigNumBSF(state.maxh, ZERO);
     q = parseBigNumBSF(state.q, ZERO);
     pubTime = state.pubTime ?? 0;
+    swapTime = state.swapTime ?? 0;
     maxrho = parseBigNumBSF(state.maxrho, ZERO);
     lifetime_h = parseBigNum(state.lifetime_h, ZERO);
     lifetime_rho = parseBigNum(state.lifetime_rho, ZERO);
@@ -1351,6 +1375,11 @@ var createMilestoneMenu = () => {
  */
 var isCurrencyVisible = (index) => !(index ^ alphaMode);
 
+var getTauEquation = () => {
+    if (rhoUnlock.level === 0) return `\\max{(h(\\phi))^{${maxhExponent}}}`;
+    else return `\\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}}`;
+}
+
 var getPrimaryEquation = () => {
     let result = ``;
 
@@ -1407,8 +1436,7 @@ var getSecondaryEquation = () => {
         result += `\\dot{\\rho} = ${rhodot.toString()}`;
     }
 
-    if (rhoUnlock.level === 0) result += `\\\\${theory.latexSymbol}=\\max{(h(\\phi))^{${maxhExponent}}}`
-    else result += `\\\\${theory.latexSymbol}=\\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}}`;
+    result += `\\\\${theory.latexSymbol} = ${getTauEquation()}`;
 
     return result;
 }
@@ -1418,9 +1446,7 @@ var getTertiaryEquation = () => {
 
     result += `q=${q} \\\\`;
     result += `h(\\phi)=${cur_h}, \\max{h(\\phi)} = ${maxh}`;
-    if (!alphaMode) {
-        result += `\\\\ \\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}} = ${getTau()}`;
-    }
+    result += `\\\\ ${getTauEquation()} = ${getTau()}`;
 
     return result;
 }
