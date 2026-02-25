@@ -36,6 +36,7 @@ var pubtime = 0;
 var pubtime_actual = 0;
 var A = BigNumber.ONE;
 var tvar, c1, c2, q1, q2, r1, n1, s;
+var fractalToggle;
 var snexp, snboost, nboost, fractalTerm, sterm, expterm, speedupMs;
 var autoremove_milestones;
 
@@ -210,6 +211,19 @@ var init = () => {
     autoremove_milestones.getDescription = (_) => `Autoremove speedup milestones: ${autoremove_milestones.level ? 'ON' : 'OFF'}`;
     autoremove_milestones.getInfo = (_) => `Automatically remove speedup milestones if the next $s$ after the cap is affordable`;
     autoremove_milestones.boughtOrRefunded = (_) => autoremove_milestones.level %= 2;
+  }
+  // Fractal Toggle
+  {
+    fractalToggle = theory.createPermanentUpgrade(4, currency, new FreeCost());
+    fractalToggle.getDescription = (_) => fractalToggle.level > 0 ? "Disable background" : "Enable background";
+    fractalToggle.getInfo = (_) => "Toggles the display of fractal background";
+    fractalToggle.boughtOrRefunded = (_) => {
+      fractalToggle.level = fractalToggle.level & 1;
+      backgroundTime = 0;
+      backgroundIndex = backgroundImages.length - 1;
+      backgroundInitialized = false;
+      backgroundImages[0].opacity = backgroundImages[1].opacity = backgroundImages[2].opacity = 0;
+    }
   }
 
   ///////////////////////
@@ -421,6 +435,9 @@ var tick = (elapsedTime, multiplier) => {
   if (stage >= 2) theory.invalidateSecondaryEquation();
   theory.invalidateTertiaryEquation();
   theory.invalidateQuaternaryValues();
+  if (!game.isCalculatingOfflineProgress && fractalToggle.level == 1) {
+    updateBackgroundImage(elapsedTime);
+  }
 };
 
 var postPublish = () => {
@@ -619,6 +636,67 @@ var goToNextStage = () => {
   quaternaryEntries = [];
   theory.invalidateQuaternaryValues();
 };
+
+
+var lastTheme = null;
+var backgroundImages = [ui.createImage({scale: 0.75, opacity: 0}) , ui.createImage({scale: 0.75, opacity: 0}) , ui.createImage({scale: 0.75, opacity: 0})];
+var backgroundIndex = backgroundImages.length - 1;
+var backgroundTime = 0;
+var backgroundDisplayTime = 10;
+var backgroundTransitionTime = 2;
+var backgroundInitialized = false;
+
+var fadeBackground = (image, opacity) => {
+  if (image.opacity != opacity)
+    image.fadeTo(opacity, backgroundTransitionTime * 1000, Easing.LINEAR);
+}
+
+var updateBackgroundImage = (elapsedTime) => {
+  if (lastTheme != game.settings.theme) {
+    if (game.settings.theme == Theme.LIGHT)
+      backgroundImages[0].source = ImageSource.fromUri("https://github.com/conicgames/custom-theories/blob/main/assets/FractalPatternToothpickSequenceLight.png?raw=true");
+    else
+      backgroundImages[0].source = ImageSource.fromUri("https://github.com/conicgames/custom-theories/blob/main/assets/FractalPatternToothpickSequence.png?raw=true");
+  
+    if (game.settings.theme == Theme.LIGHT)
+      backgroundImages[1].source = ImageSource.fromUri("https://github.com/conicgames/custom-theories/blob/main/assets/FractalPatternUlamWarburtonLight.png?raw=true");
+    else
+      backgroundImages[1].source = ImageSource.fromUri("https://github.com/conicgames/custom-theories/blob/main/assets/FractalPatternUlamWarburton.png?raw=true");
+    if (game.settings.theme == Theme.LIGHT)
+      backgroundImages[2].source = ImageSource.fromUri("https://github.com/conicgames/custom-theories/blob/main/assets/FractalPatternSierpinskiTriangleLight.png?raw=true");
+    else
+      backgroundImages[2].source = ImageSource.fromUri("https://github.com/conicgames/custom-theories/blob/main/assets/FractalPatternSierpinskiTriangle.png?raw=true");
+  
+      lastTheme = game.settings.theme;
+    }
+  
+    backgroundTime += elapsedTime;
+    var nextIndex = null;
+  
+    if (backgroundIndex > fractalTerm.length || !backgroundInitialized && backgroundTime > 2)
+      nextIndex = 0;
+  
+    if (backgroundTime > backgroundDisplayTime)
+      nextIndex = (backgroundIndex + 1) % Math.min(fractalTerm.level + 1, backgroundImages.length);
+  
+    if (nextIndex != null) {
+      if (backgroundIndex != nextIndex)
+        fadeBackground(backgroundImages[backgroundIndex], 0);
+  
+      backgroundIndex = nextIndex;
+      fadeBackground(backgroundImages[backgroundIndex], 1);
+      backgroundTime = 0;
+      backgroundInitialized = true;
+    }
+  }
+  
+  var getEquationUnderlay = () => {
+    return ui.createGrid({
+      isVisible: () => fractalToggle.level == 1,
+      children: backgroundImages
+    });
+  }
+
 
 var getPublicationMultiplier = (tau) => (tau.pow(1.324/tauMultiplier) * BigNumber.FIVE).max(BigNumber.ONE);
 var getPublicationMultiplierFormula = (symbol) => "5" + symbol + "^{0.331}";
