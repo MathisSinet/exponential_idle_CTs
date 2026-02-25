@@ -1072,16 +1072,17 @@ var getEquationOverlay = () =>
         heightRequest: getImageSize(ui.screenWidth),
         margin: new Thickness(0,18,10,0),
         isVisible: () => milestoneMenuUnlock.level > 0,
+        opacity: () => milestonesAvailable > 0 ? 1 : 0.5,
         useTint: true,
         aspect: Aspect.ASPECT_FILL,
         horizontalOptions: LayoutOptions.END,
         verticalOptions: LayoutOptions.START,
         onTouched: (e) => {
             if (e.type == TouchType.PRESSED) {
-                milestoneMenuButton.opacity = 0.4;
+                milestoneMenuButton.opacity = 0.25;
             }
             if (e.type.isReleased()) {
-                milestoneMenuButton.opacity = 1;
+                milestoneMenuButton.opacity = () => milestonesAvailable > 0 ? 1 : 0.5;
                 milestoneInfoPressed = false;
                 createMilestoneMenu().show();
             }
