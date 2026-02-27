@@ -1162,7 +1162,7 @@ var createMilestoneUpgradeUI = (milestone) => {
 
     let refundButton = ui.createImage({
         useTint: true,
-        opacity: () => (milestone.canBeRefunded(1) && !refund_button_pressed) ? 0.5 : 0.2,
+        opacity: () => (milestone.canBeRefunded(1) && !refund_button_pressed) ? 0.5 : 0.25,
         source: ImageSource.REFUND,
         widthRequest: getImageSize(ui.screenWidth),
         heightRequest: getImageSize(ui.screenWidth),
@@ -1279,7 +1279,7 @@ var createMilestoneMenu = () => {
 
     let infoButton = ui.createImage({
         useTint: true,
-        opacity: () => info_button_pressed ? 0.5 : 1,
+        opacity: () => info_button_pressed ? 1 : 0.5,
         source: ImageSource.INFO,
         widthRequest: getImageSize(ui.screenWidth),
         heightRequest: getImageSize(ui.screenWidth),
@@ -1318,9 +1318,9 @@ var createMilestoneMenu = () => {
                 // Cost reduction formula
                 ui.createLatexLabel({
                     margin: new Thickness(0, 0, 0, 6),
-                    text: Utils.getMath("\\text{Milestone cost reduction: } R = 1 + \\max{h(\\phi)}^{4}"),
+                    text: "Milestone cost reduction: " + Utils.getMath("R = 1 + \\max{h(\\phi)}^{4}"),
                     horizontalTextAlignment: TextAlignment.CENTER,
-                    verticalTextAlignment: TextAlignment.CENTER
+                    verticalTextAlignment: TextAlignment.START
                 }),
                 // Current milestone reduction
                 ui.createLatexLabel({
