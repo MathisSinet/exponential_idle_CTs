@@ -10,12 +10,12 @@ Tool to get various informations about your current main theory. WIP
 
 ## Non-Linear Integration
 
-Custom Theory about Riemann-Stieljes integration, developed with [Snaeky](https://github.com/Snaeks). WIP
+Custom Theory about Riemann-Stieljes integration, developed with [Snaeky](https://github.com/Snaeks). Stable.
 
 ## Collatz Conjecture
 
 Custom Theory about the Collatz Conjecture, reboot of the original version from [prop](https://github.com/propfeds),
-developed with d4Nf6Bg51-0. WIP
+developed with d4Nf6Bg51-0. Cancelled.
 
 Check out [the original version](https://github.com/propfeds/collatz-conjecture).
 
