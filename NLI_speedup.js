@@ -1315,6 +1315,7 @@ var createMilestoneMenu = () => {
 
     let menu = ui.createPopup({
         title: Localization.get("PublicationPopupMilestones"),
+        isPeekable: true,
         content: ui.createStackLayout({
             children: [
                 // Cost reduction formula
