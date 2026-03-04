@@ -31,7 +31,8 @@ var getName = (language) => {
 var getDescription = (language) => {
     const descs =
     {
-        en: "A custom theory about the Riemann-Stieltjes integral"
+        en: "A custom theory about Riemann-Stieltjes integration\n" +
+            "This version has a 6x tickspeed multiplier speedup for season 6"
     };
 
     return descs[language] || descs.en;
