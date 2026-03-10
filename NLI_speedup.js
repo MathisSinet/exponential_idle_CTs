@@ -729,9 +729,9 @@ var init = () => {
      */
     var makeBaseUpgrade = (upgrade, upgradeName, bases) => {
         upgrade.getDescription = (_) => Localization.getUpgradeIncCustomDesc(`${upgradeName} \\text{ base}`, `${
-            upgrade.level < bases.length ? r5(bases[upgrade.level + 1] - bases[upgrade.level]) : 0
+            upgrade.level < upgrade.maxLevel ? r5(bases[upgrade.level + 1] - bases[upgrade.level]) : 0
         }`)
-        upgrade.getInfo = (_) => `$${upgradeName}$ base: ` + (upgrade.level < bases.length
+        upgrade.getInfo = (_) => `$${upgradeName}$ base: ` + (upgrade.level < upgrade.maxLevel
             ? Utils.getMathTo(`${bases[upgrade.level]}`, `${bases[upgrade.level + 1]}`)
             : Utils.getMath(`${bases[upgrade.level]}`));
         upgrade.boughtOrRefunded = () => updateAvailability();
