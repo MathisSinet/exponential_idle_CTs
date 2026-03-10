@@ -16,6 +16,7 @@ import { TextAlignment } from '../api/ui/properties/TextAlignment';
 import { Thickness } from '../api/ui/properties/Thickness';
 import { TouchType } from '../api/ui/properties/TouchType';
 import { LatexLabel } from '../api/ui/LatexLabel';
+import { game } from '../api/Game';
 
 var id = "nli_s6_speedup";
 
@@ -92,13 +93,17 @@ const ZERO = BigNumber.ZERO;
 const ONE = BigNumber.ONE;
 
 var alphaMode = true;
+var parallelMode = false;
 
-let q = ONE;
+let q_rho = ONE;
+let q_alpha = ONE;
 let maxh = ZERO;
 let maxrho = ONE;
 
 let milestonesAvailable = 0;
 let totalMilestonePoints = 0;
+
+let autobuyCooldown = 1 / game.automation.rate;
 
 // Currencies
 /** @type {Currency} */
@@ -152,6 +157,8 @@ var kTermPerma;
 var hTermPerma;
 /** @type {Upgrade} */
 var msLevelIncreasePerma;
+/** @type {Upgrade} */
+var rhoParallelUpgrade;
 
 /** @type {Upgrade} hidden */
 var buyAllPerma;
@@ -185,6 +192,8 @@ var b2baseMs;
 var a2baseMs;
 /** @type {CustomMilestoneUpgrade} */
 var a3baseMs;
+/** @type {CustomMilestoneUpgrade} */
+var alphaParallelUpgrade;
 
 // UI
 var rhodot = ZERO;
@@ -238,6 +247,8 @@ const msLevelIncreaseCosts = bigNumArray([
     '1e770'
 ])
 
+const rhoParallelCost = BigNumber.from('1e970');
+
 const trueMilestoneCosts = bigNumArray([
     8, // ms menu
     10, // buy all
@@ -276,10 +287,12 @@ const milestoneCosts = bigNumArray([
 
     '1e2300', // group 7
 
-    '1e2700',
-    '1e2800',
-    '1e2900',
-    '1e3000'
+    '1e2325',
+    '1e2350',
+    '1e2375',
+    '1e2400', // useless milestones
+    
+    '1e2425' // final
 ]);
 
 const milestoneCount = milestoneCosts.length;
@@ -468,7 +481,8 @@ var rspInt = (poly1, poly2, lBound, hBound) => {
 var switchMode = () => {
     alphaMode = !alphaMode;
 
-    q = ONE;
+    q_rho = ONE;
+    q_alpha = ONE;
     currencyRho.value = ZERO;
     currencyAlpha.value = ZERO;
 
@@ -494,6 +508,15 @@ var switchMode = () => {
     alphadot = ZERO;
     swapTime = 0;
 
+    theory.invalidatePrimaryEquation();
+    theory.invalidateSecondaryEquation();
+    theory.invalidateTertiaryEquation();
+    theory.clearGraph();
+    updateAvailability();
+}
+
+var quickSwitchMode = () => {
+    alphaMode = !alphaMode;
     theory.invalidatePrimaryEquation();
     theory.invalidateSecondaryEquation();
     theory.invalidateTertiaryEquation();
@@ -665,6 +688,13 @@ var init = () => {
         msLevelIncreasePerma.boughtOrRefunded = (_) => updateAvailability();
         msLevelIncreasePerma.maxLevel = 6;
     }
+    {
+        rhoParallelUpgrade = theory.createPermanentUpgrade(7, currencyRho, new ConstantCost(rhoParallelCost));
+        rhoParallelUpgrade.getDescription = () => `Allow $\\rho$ to be run in parallel with $\\alpha$ (${rhoParallelUpgrade.level + alphaParallelUpgrade.level}/2)`;
+        rhoParallelUpgrade.getInfo = () => rhoParallelUpgrade.getDescription() + ". You need both upgrades to enable the feature.";
+        rhoParallelUpgrade.boughtOrRefunded = (_) => updateAvailability();
+        rhoParallelUpgrade.maxLevel = 1;
+    }
 
     {
         pubTimeOverlay = theory.createPermanentUpgrade(50, currencyAlpha, new FreeCost);
@@ -741,37 +771,44 @@ var init = () => {
     {
         a1baseMs = new CustomMilestoneUpgrade(0, 4);
         makeBaseUpgrade(a1baseMs, "a_1", a1bases);
-        a1baseMs.canBeRefunded = () => true;
+        a1baseMs.canBeRefunded = () => alphaParallelUpgrade.level == 0;
     }
     {
         b1baseMs = new CustomMilestoneUpgrade(1, 4);
         makeBaseUpgrade(b1baseMs, "b_1", b1bases);
-        b1baseMs.canBeRefunded = () => true;
+        b1baseMs.canBeRefunded = () => alphaParallelUpgrade.level == 0;
     }
     {
         a0baseMs = new CustomMilestoneUpgrade(2, 4);
         makeBaseUpgrade(a0baseMs, "a_0", a0bases);
-        a0baseMs.canBeRefunded = () => true;
+        a0baseMs.canBeRefunded = () => alphaParallelUpgrade.level == 0;
     }
     {
         b0baseMs = new CustomMilestoneUpgrade(3, 4);
         makeBaseUpgrade(b0baseMs, "b_0", b0bases);
-        b0baseMs.canBeRefunded = () => true;
+        b0baseMs.canBeRefunded = () => alphaParallelUpgrade.level == 0;
     }
     {
         a2baseMs = new CustomMilestoneUpgrade(4, 4);
         makeBaseUpgrade(a2baseMs, "a_2", a2bases);
-        a2baseMs.canBeRefunded = () => true;
+        a2baseMs.canBeRefunded = () => alphaParallelUpgrade.level == 0;
     }
     {
         b2baseMs = new CustomMilestoneUpgrade(5, 4);
         makeBaseUpgrade(b2baseMs, "b_2", b2bases);
-        b2baseMs.canBeRefunded = () => true;
+        b2baseMs.canBeRefunded = () => alphaParallelUpgrade.level == 0;
     }
     {
         a3baseMs = new CustomMilestoneUpgrade(6, 4);
         makeBaseUpgrade(a3baseMs, "a_3", a3bases);
-        a3baseMs.canBeRefunded = () => true;
+        a3baseMs.canBeRefunded = () => alphaParallelUpgrade.level == 0;
+    }
+    {
+        alphaParallelUpgrade = new CustomMilestoneUpgrade(7, 1);
+        alphaParallelUpgrade.getDescription = () => `Allow $\\alpha$ to be run in parallel with $\\rho$ (${rhoParallelUpgrade.level + alphaParallelUpgrade.level}/2)`;
+        alphaParallelUpgrade.getInfo = () => alphaParallelUpgrade.getDescription() + ". You need both upgrades to enable the feature.";
+        alphaParallelUpgrade.boughtOrRefunded = () => updateAvailability();
+        alphaParallelUpgrade.canBeRefunded = () => false;
     }
     
 
@@ -803,9 +840,15 @@ var init = () => {
 }
 
 var updateAvailability = () => {
+    parallelMode = rhoParallelUpgrade.level + alphaParallelUpgrade.level == 2;
+
     // Regular milestones
     buyAllMs.isAvailable = milestoneMenuUnlock.level > 0;
     autobuyMs.isAvailable = buyAllMs.level > 0;
+
+    // Perma upgrades
+    swapTimeOverlay.isAvailable = rhoUnlock.level > 0 && !parallelMode;
+    rhoParallelUpgrade.isAvailable = msLevelIncreasePerma.level == 6;
 
     // Upgrades
     for (var v of [q1,a0,a1,a2,a3,b1,b2]) {
@@ -827,6 +870,7 @@ var updateAvailability = () => {
     b2.isAvailable &&= hTermPerma.level > 0;
     b2a.isAvailable &&= hTermPerma.level > 0;
 
+    // Custom milestones
     a0baseMs.maxLevel = Math.min(4, 1 + msLevelIncreasePerma.level);
     b0baseMs.maxLevel = Math.min(4, 1 + msLevelIncreasePerma.level);
     a1baseMs.maxLevel = Math.min(4, 1 + msLevelIncreasePerma.level);
@@ -841,19 +885,14 @@ var updateAvailability = () => {
     a3baseMs.isAvailable = kTermPerma.level > 1;
     a3baseMs.maxLevel = Math.max(Math.min(4, msLevelIncreasePerma.level - 2), 0);
 
-    swapTimeOverlay.isAvailable = rhoUnlock.level > 0;
+    alphaParallelUpgrade.isAvailable = a0baseMs.level + a1baseMs.level + a2baseMs.level + a3baseMs.level
+        + b0baseMs.level + b1baseMs.level + b2baseMs.level == 28;
+
 }
 
-var tick = (elapsedTime, multiplier) => {
-    if (q1.level + q1a.level == 0) {
-        return;
-    }
-    multiplier *= s6_speed_multiplier;
+var tickSystem = (elapsedTime, multiplier, alphaMode) => {
     const dt = elapsedTime * multiplier;
     const bonus = theory.publicationMultiplier;
-
-    pubTime += elapsedTime;
-    swapTime += elapsedTime;
 
     const vq1 = getQ1((alphaMode ? q1a : q1).level);
 
@@ -867,8 +906,12 @@ var tick = (elapsedTime, multiplier) => {
     const vb2 = getB2((alphaMode ? b2a : b2).level);
 
     const PHI_PLUS_ONE = ONE + PHI;
-    q = (q.pow(PHI_PLUS_ONE) + dt * vq1).pow(ONE/PHI_PLUS_ONE);
-
+    if (alphaMode) {
+        q_alpha = (q_alpha.pow(PHI_PLUS_ONE) + dt * vq1).pow(ONE/PHI_PLUS_ONE);
+    }
+    else {
+        q_rho = (q_rho.pow(PHI_PLUS_ONE) + dt * vq1).pow(ONE/PHI_PLUS_ONE);
+    }
 
     let k = [va0, va1];
     if (kTermPerma.level > 0) k.push(va2);
@@ -882,14 +925,36 @@ var tick = (elapsedTime, multiplier) => {
     lifetime_h = lifetime_h.max(maxh);
 
     if (alphaMode) {
-        const integral = rspInt(h, k, ZERO, q);
+        const integral = rspInt(h, k, ZERO, q_alpha);
         alphadot = integral * bonus * multiplier;
         currencyAlpha.value += alphadot * elapsedTime;
     }
     else {
-        const integral = rspInt(k, h, ZERO, q);
+        const integral = rspInt(k, h, ZERO, q_rho);
         rhodot = integral * bonus * multiplier;
         currencyRho.value += rhodot * elapsedTime;
+    }
+
+    return cur_h;
+}
+
+var tick = (elapsedTime, multiplier) => {
+    if (q1.level + q1a.level == 0) {
+        return;
+    }
+
+    multiplier *= s6_speed_multiplier;
+
+    pubTime += elapsedTime;
+    swapTime += elapsedTime;
+
+    if (!parallelMode) {
+        tickSystem(elapsedTime, multiplier, alphaMode);
+    }
+    else {
+        let alpha_h = tickSystem(elapsedTime, multiplier, true);
+        let rho_h = tickSystem(elapsedTime, multiplier, false);
+        cur_h = alphaMode ? alpha_h : rho_h;
     }
 
     maxrho = maxrho.max(currencyRho.value);
@@ -901,6 +966,22 @@ var tick = (elapsedTime, multiplier) => {
         totalMilestonePoints++;
         milestonesAvailable++;
     }
+
+    if (parallelMode && theory.isAutoBuyerActive) {
+        autobuyCooldown -= elapsedTime;
+        if (autobuyCooldown <= 0) {
+            const extra_upgrades = alphaMode ? [q1,a0,a1,a2,a3,b1,b2] : [q1a,a1a,a2a,a3a,b0a,b1a,b2a];
+            for (var upgrade of extra_upgrades) {
+                let prev_available = upgrade.isAvailable;
+                upgrade.isAvailable = true;
+                if (upgrade.isAutoBuyable) {
+                    upgrade.buy(-1);
+                }
+                upgrade.isAvailable = prev_available;
+            }
+            autobuyCooldown = 1 / game.automation.rate;
+        }
+    }
     
     theory.invalidateSecondaryEquation();
     theory.invalidateTertiaryEquation();
@@ -909,7 +990,8 @@ var tick = (elapsedTime, multiplier) => {
 var postPublish = () => {
     currencyRho.value = ZERO;
     currencyAlpha.value = ZERO;
-    q = ONE;
+    q_rho = ONE;
+    q_alpha = ONE;
     maxh = ZERO;
     maxrho = ONE;
     pubTime = 0;
@@ -932,7 +1014,8 @@ var getInternalState = () => JSON.stringify({
     milestonesAvailable,
     totalMilestonePoints,
     maxh: maxh.toBase64String(),
-    q: q.toBase64String(),
+    q_rho: q_rho.toBase64String(),
+    q_alpha: q_alpha.toBase64String(),
     pubTime,
     swapTime,
     maxrho: maxrho.toBase64String(),
@@ -972,7 +1055,8 @@ var setInternalState = (stateStr) => {
     milestonesAvailable = state.milestonesAvailable ?? 0;
     totalMilestonePoints = state.totalMilestonePoints ?? 0;
     maxh = parseBigNumBSF(state.maxh, ZERO);
-    q = parseBigNumBSF(state.q, ZERO);
+    q_rho = parseBigNumBSF(state.q_rho, parseBigNumBSF(state.q, ONE));
+    q_alpha = parseBigNumBSF(state.q_alpha, parseBigNumBSF(state.q, ONE));
     pubTime = state.pubTime ?? 0;
     swapTime = state.swapTime ?? 0;
     maxrho = parseBigNumBSF(state.maxrho, ZERO);
@@ -1013,15 +1097,6 @@ var createSwitcherFrame = () => {
         opacity: 1,
     })
 
-    //let adjustmentDone = false;
-    //label.onSizeChanged = () => {
-    //    if (!adjustmentDone && label.width > 0) {
-    //        label.fontSize = fontSize * targetWidth / label.width;
-    //        label.opacity = 1;
-    //        adjustmentDone = true;
-    //    }
-    //};
-
     label.onTouched = (e) =>
     {
         if(e.type == TouchType.PRESSED)
@@ -1034,7 +1109,12 @@ var createSwitcherFrame = () => {
             if(triggerable)
             {
                 Sound.playClick();
+                if (parallelMode) {
+                    quickSwitchMode();
+                }
+                else {
                 createSwitcherMenu().show();
+                }
             }
             else
                 triggerable = true;
@@ -1069,6 +1149,7 @@ var getEquationOverlay = () =>
 
     let milestoneMenuButton = ui.createImage({
         row: 0, column: 2,
+        inputTransparent: false,
         source: ImageSource.ARROW_90,
         widthRequest: getImageSize(ui.screenWidth),
         heightRequest: getImageSize(ui.screenWidth),
@@ -1377,11 +1458,20 @@ var createMilestoneMenu = () => {
  * @param {Number} index 
  * @returns 
  */
-var isCurrencyVisible = (index) => !(index ^ alphaMode);
+var isCurrencyVisible = (index) => parallelMode || !(index ^ alphaMode);
 
 var getTauEquation = () => {
     if (rhoUnlock.level === 0) return `\\max{(h(\\phi))^{${maxhExponent}}}`;
     else return `\\max{\\rho^{${rhoExponent}}} \\times \\max{(h(\\phi))^{${maxhExponent}}}`;
+}
+
+var getQRepr = () => {
+    if (!parallelMode) {
+        return 'q';
+    }
+    else {
+        return 'q_' + (alphaMode ? '{\\alpha}' : '{\\rho}');
+    }
 }
 
 var getPrimaryEquation = () => {
@@ -1390,15 +1480,17 @@ var getPrimaryEquation = () => {
     theory.primaryEquationHeight = 90
     theory.primaryEquationScale = 1.25
 
+    const q = getQRepr();
+
     if (mainEquationPressed) {
         result += "\\int_{A}^{B}{P(x)dQ(x)} = \\int_{A}^{B}{P(x)Q'(x)dx}"
     }
     else {
         if (alphaMode) {
-            result += `\\dot{\\alpha}=\\int_{0}^{q}{h(x)dk(x)}`;
+            result += `\\dot{\\alpha}=\\int_{0}^{${q}}{h(x)dk(x)}`;
         }
         else {
-            result += `\\dot{\\rho}=\\int_{0}^{q}{k(x)dh(x)}`;
+            result += `\\dot{\\rho}=\\int_{0}^{${q}}{k(x)dh(x)}`;
         }
     }
     
@@ -1431,8 +1523,9 @@ var getSecondaryEquation = () => {
         h = "{b_2}x^2 + " + h;
     }
     
+    const q = getQRepr();
     result += `k(x) = ${k}\\\\h(x) = ${h}\\\\`;
-    result += `\\dot{q} = q_1 q^{-\\phi},\\quad`;
+    result += `\\dot{${q}} = q_1 {${q}}^{-\\phi},\\quad`;
     if (alphaMode) {
         result += `\\dot{\\alpha} = ${alphadot.toString()}`;
     }
@@ -1448,7 +1541,7 @@ var getSecondaryEquation = () => {
 var getTertiaryEquation = () => {
     let result = ``;
 
-    result += `q=${q} \\\\`;
+    result += `${getQRepr()}=${alphaMode ? q_alpha : q_rho} \\\\`;
     result += `h(\\phi)=${cur_h}, \\max{h(\\phi)} = ${maxh}`;
     result += `\\\\ ${getTauEquation()} = ${getTau()}`;
 
