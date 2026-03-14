@@ -1477,7 +1477,7 @@ var getQRepr = () => {
 var getPrimaryEquation = () => {
     let result = ``;
 
-    theory.primaryEquationHeight = 90
+    theory.primaryEquationHeight = 65
     theory.primaryEquationScale = 1.25
 
     const q = getQRepr();
@@ -1507,8 +1507,8 @@ var getSecondaryEquation = () => {
         return result;
     }
 
-    theory.secondaryEquationHeight = 100;
-    theory.secondaryEquationScale = 1.25;
+    theory.secondaryEquationHeight = 90;
+    theory.secondaryEquationScale = 1.05;
 
     let k = "{a_1}x + a_0";
     if (kTermPerma.level > 0) {
