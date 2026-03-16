@@ -23,7 +23,7 @@ var id = "nli_s6_speedup";
 var getName = (language) => {
     const names =
     {
-        en: 'Non-Linear Integration (S6 Speedup)',
+        en: 'Nonlinear Integration (S6 Speedup)',
     };
 
     return names[language] || names.en;
@@ -1242,18 +1242,20 @@ var createMilestoneUpgradeUI = (milestone) => {
     let frame_triggerable = true;
 
     let isMilestoneBuyable = () => milestone.level < milestone.maxLevel && milestonesAvailable > 0;
+    let refundButtonSize = getImageSize(ui.screenWidth);
 
     let refundButton = ui.createImage({
         useTint: true,
         opacity: () => (milestone.canBeRefunded(1) && !refund_button_pressed) ? 0.5 : 0.25,
         source: ImageSource.REFUND,
-        widthRequest: getImageSize(ui.screenWidth),
-        heightRequest: getImageSize(ui.screenWidth),
+        widthRequest: refundButtonSize,
+        heightRequest: refundButtonSize,
         aspect: Aspect.ASPECT_FILL,
         margin: new Thickness(0,0,0,0),
         isVisible: true,
         horizontalOptions: LayoutOptions.END,
         verticalOptions: LayoutOptions.CENTER,
+        column: 0,
     });
 
     refundButton.onTouched = (e) =>
@@ -1288,8 +1290,8 @@ var createMilestoneUpgradeUI = (milestone) => {
     let frame = ui.createFrame({
         horizontalOptions: LayoutOptions.FILL_AND_EXPAND,
         verticalOptions: LayoutOptions.FILL_AND_EXPAND,
-        widthRequest: ui.screenWidth,
         heightRequest: Math.round(ui.screenHeight / 13),
+        column: 1,
         content: ui.createGrid({
             columnDefinitions: ["*", "auto"],
             inputTransparent: true,
@@ -1345,9 +1347,9 @@ var createMilestoneUpgradeUI = (milestone) => {
         }
     };
 
-    return ui.createStackLayout({
-        orientation: StackOrientation.HORIZONTAL,
-        horizontalOptions: LayoutOptions.START_AND_EXPAND,
+    return ui.createGrid({
+        columnDefinitions: ['auto', '*'],
+        horizontalOptions: LayoutOptions.FILL_AND_EXPAND,
         margin: new Thickness(0,2,0,0),
         isVisible: () => milestone.isAvailable,
         children: [
