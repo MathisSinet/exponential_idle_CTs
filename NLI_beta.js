@@ -240,8 +240,8 @@ const msLevelIncreaseCosts = bigNumArray([
     '1e60',
     '1e100',
     '1e160',
-    '1e470',
-    '1e620',
+    '1e500',
+    '1e650',
     '1e770'
 ])
 
@@ -276,12 +276,12 @@ const milestoneCosts = bigNumArray([
     '1e950',
     '1e1000', // group 4
 
-    '1e1400',
-    '1e1500',
-    '1e1600', // group 5
+    '1e1425',
+    '1e1525',
+    '1e1625', // group 5
 
-    '1e1800',
-    '1e1900', // group 6
+    '1e1850',
+    '1e1950', // group 6
 
     '1e2300', // group 7
 
