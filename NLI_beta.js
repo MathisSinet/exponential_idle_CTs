@@ -96,6 +96,7 @@ var parallelMode = false;
 let q_rho = ONE;
 let q_alpha = ONE;
 let maxh = ZERO;
+let max_alpha = ONE;
 let maxrho = ONE;
 
 let milestonesAvailable = 0;
@@ -202,6 +203,7 @@ var pubTime = 0;
 var swapTime = 0;
 
 let lifetime_h = ZERO;
+let lifetime_alpha = ZERO;
 let lifetime_rho = ZERO;
 
 var mainEquationPressed = false;
@@ -920,7 +922,6 @@ var tickSystem = (elapsedTime, multiplier, alphaMode) => {
 
     cur_h = evalp(h, PHI);
     maxh = maxh.max(cur_h);
-    lifetime_h = lifetime_h.max(maxh);
 
     if (alphaMode) {
         const integral = rspInt(h, k, ZERO, q_alpha);
@@ -952,9 +953,8 @@ var tick = (elapsedTime, multiplier) => {
         let rho_h = tickSystem(elapsedTime, multiplier, false);
         cur_h = alphaMode ? alpha_h : rho_h;
     }
-
+    max_alpha = max_alpha.max(currencyAlpha.value);
     maxrho = maxrho.max(currencyRho.value);
-    lifetime_rho = lifetime_rho.max(maxrho);
 
     if (totalMilestonePoints < milestoneCount 
         && theory.tau >= milestoneCosts[totalMilestonePoints] / getMilestoneCostReduction()
@@ -984,11 +984,16 @@ var tick = (elapsedTime, multiplier) => {
 }
 
 var postPublish = () => {
+    lifetime_h = maxh;
+    lifetime_alpha = max_alpha;
+    lifetime_rho = maxrho;
+
     currencyRho.value = ZERO;
     currencyAlpha.value = ZERO;
     q_rho = ONE;
     q_alpha = ONE;
     maxh = ZERO;
+    max_alpha = ONE;
     maxrho = ONE;
     pubTime = 0;
     swapTime = 0;
@@ -1014,8 +1019,10 @@ var getInternalState = () => JSON.stringify({
     q_alpha: q_alpha.toBase64String(),
     pubTime,
     swapTime,
+    max_alpha: max_alpha.toString(),
     maxrho: maxrho.toBase64String(),
     lifetime_h: lifetime_h.toString(),
+    lifetime_alpha: lifetime_alpha.toString(),
     lifetime_rho: lifetime_rho.toString()
 })
 
@@ -1055,8 +1062,10 @@ var setInternalState = (stateStr) => {
     q_alpha = parseBigNumBSF(state.q_alpha, parseBigNumBSF(state.q, ONE));
     pubTime = state.pubTime ?? 0;
     swapTime = state.swapTime ?? 0;
-    maxrho = parseBigNumBSF(state.maxrho, ZERO);
+    max_alpha = parseBigNum(state.max_alpha, ONE);
+    maxrho = parseBigNumBSF(state.maxrho, ONE);
     lifetime_h = parseBigNum(state.lifetime_h, ZERO);
+    lifetime_alpha = parseBigNum(state.lifetime_alpha, ZERO);
     lifetime_rho = parseBigNum(state.lifetime_rho, ZERO);
 }
 
@@ -1183,6 +1192,7 @@ var getEquationOverlay = () =>
             if (event.type == TouchType.PRESSED || event.type.isReleased()) {
             mainEquationPressed = event.type == TouchType.PRESSED;
             theory.invalidatePrimaryEquation();
+            theory.invalidateSecondaryEquation();
             }
         },
     });
@@ -1497,16 +1507,18 @@ var getPrimaryEquation = () => {
 
 var getSecondaryEquation = () => {
     let result = ``;
+    theory.secondaryEquationHeight = 90;
+    theory.secondaryEquationScale = 1.05;
 
     if (mainEquationPressed) {
         result += "\\phi = \\frac{1+\\sqrt{5}}{2} \\\\";
-        result += `\\text{Lifetime } h(\\phi) = ${lifetime_h} \\\\`;
-        if (rhoUnlock.level > 0) result += `\\text{Lifetime } \\rho = ${lifetime_rho}`;
+        result += `\\text{Previous publication } \\max{h(\\phi)} = ${lifetime_h} \\\\`;
+        result += `\\text{Previous publication } \\max{\\alpha} = ${lifetime_alpha} \\\\`;
+        if (rhoUnlock.level > 0) result += `\\text{Previous publication } \\max{\\rho} = ${lifetime_rho}`;
         return result;
     }
 
-    theory.secondaryEquationHeight = 90;
-    theory.secondaryEquationScale = 1.05;
+    
 
     let k = "{a_1}x + a_0";
     if (kTermPerma.level > 0) {
