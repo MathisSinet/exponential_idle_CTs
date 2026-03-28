@@ -321,7 +321,7 @@ var getA2 = (level) => BigNumber.from(a2bases[a2baseMs.level]).pow(level);
 
 const a3Cost = new ExponentialCost(1e8, Math.log2(3.31));
 const a3aCost = new ExponentialCost(1e8, Math.log2(40));
-const a3bases = [1.3, 1.35, 1.4, 1.44, 1.48];
+const a3bases = [1.38, 1.405, 1.43, 1.455, 1.48];
 /** @param {number} level @returns {BigNumber} */
 var getA3 = (level) => BigNumber.from(a3bases[a3baseMs.level]).pow(level);
 
@@ -339,7 +339,7 @@ var getB1 = (level) => BigNumber.from(b1bases[b1baseMs.level]).pow(level) - ONE;
 
 const b2Cost = new FirstFreeCost(new ExponentialCost(1e10, Math.log2(25.55)));
 const b2aCost = new FirstFreeCost(new ExponentialCost(1e7, Math.log2(4.1)));
-const b2bases = [1.53, 1.57, 1.61, 1.65, 1.68];
+const b2bases = [1.605, 1.615, 1.63, 1.655, 1.68];
 /** @param {number} level @returns {BigNumber} */
 var getB2 = (level) => BigNumber.from(b2bases[b2baseMs.level]).pow(level) - ONE;
 
