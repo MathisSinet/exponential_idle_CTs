@@ -512,14 +512,14 @@ var getPrimaryEquation = () => {
       return result;
     }
     case 3: {
-      theory.primaryEquationHeight = 65;
-      theory.primaryEquationScale = 0.9;
+      theory.primaryEquationHeight = 100;
+      theory.primaryEquationScale = 0.8;
       let result = ``;
       result += `\\rho = ${formatRho(currency.value)}\\\\`;
       result += `\\dot{\\rho} = ${formatRho(rhodot * adBoost)}\\\\`;
-      if (theory.canPublish) {
-        result += `\\max{\\rho} = ${formatRho(getCurrencyFromTau(theory.tau)[0])}`;
-      }
+      result += `\\max{\\rho} = ${formatRho(getCurrencyFromTau(theory.tau)[0])}\\\\`;
+      result += `q = ${formatRho(q)}\\\\`;
+      result += `r = ${formatRho(r)}\\\\`;
       return result;
     }
   }
@@ -556,7 +556,7 @@ var getSecondaryEquation = () => {
       return result;
     }
     case 3: {
-      theory.secondaryEquationHeight = 150;
+      theory.secondaryEquationHeight = 120;
       theory.secondaryEquationScale = 0.95;
       let result = ``;
       const formatCost = (upg, cost) => `${upg}\\,\\,\\text{cost}\\,=${formatRho(cost)}\\\\`;
