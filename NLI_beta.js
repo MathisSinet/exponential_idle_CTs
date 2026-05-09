@@ -157,6 +157,10 @@ var hTermPerma;
 /** @type {Upgrade} */
 var msLevelIncreasePerma;
 /** @type {Upgrade} */
+var alphaRetainUpgrade;
+/** @type {Upgrade} */
+var rhoRetainUpgrade;
+/** @type {Upgrade} */
 var rhoParallelUpgrade;
 
 /** @type {Upgrade} hidden */
@@ -246,6 +250,9 @@ const msLevelIncreaseCosts = bigNumArray([
     '1e650',
     '1e770'
 ])
+
+const alphaRetainCost = BigNumber.from('1e700');
+const rhoRetainCost = BigNumber.from('1e800');
 
 const rhoParallelCost = BigNumber.from('1e970');
 
@@ -475,26 +482,10 @@ var rspInt = (poly1, poly2, lBound, hBound) => {
 ////////////
 // Functions
 
-/**
- * Switches the mode between alpha mode and rho mode
- */
-var switchMode = () => {
-    alphaMode = !alphaMode;
-
-    q_rho = ONE;
+var resetAlphaMode = () => {
     q_alpha = ONE;
-    currencyRho.value = ZERO;
     currencyAlpha.value = ZERO;
-
-    q1.level = 0;
-    a0.level = 0;
-    a1.level = 0;
-    a2.level = 0;
-    a3.level = 0
-    b0.level = 0;
-    b1.level = 0;
-    b2.level = 0
-
+    
     q1a.level = 0;
     a0a.level = 0;
     a1a.level = 0;
@@ -502,7 +493,31 @@ var switchMode = () => {
     a3a.level = 0
     b0a.level = 0;
     b1a.level = 0;
-    b2a.level = 0
+    b2a.level = 0;
+}
+
+var resetRhoMode = () => {
+    q_rho = ONE;
+    currencyRho.value = ZERO;
+
+    q1.level = 0;
+    a0.level = 0;
+    a1.level = 0;
+    a2.level = 0;
+    a3.level = 0;
+    b0.level = 0;
+    b1.level = 0;
+    b2.level = 0;
+}
+
+/**
+ * Switches the mode between alpha mode and rho mode
+ */
+var switchMode = () => {
+    alphaMode = !alphaMode;
+
+    if (alphaRetainUpgrade.level == 0) resetAlphaMode();
+    if (rhoRetainUpgrade.level == 0) resetRhoMode();
 
     rhodot = ZERO;
     alphadot = ZERO;
@@ -689,6 +704,18 @@ var init = () => {
         msLevelIncreasePerma.maxLevel = 6;
     }
     {
+        alphaRetainUpgrade = theory.createPermanentUpgrade(10, currencyAlpha, new ConstantCost(alphaRetainCost));
+        alphaRetainUpgrade.getDescription = () => `Progress in $\\alpha$ mode is retained when swapping`;
+        alphaRetainUpgrade.boughtOrRefunded = (_) => updateAvailability();
+        alphaRetainUpgrade.maxLevel = 1;
+    }
+    {
+        rhoRetainUpgrade = theory.createPermanentUpgrade(11, currencyRho, new ConstantCost(rhoRetainCost));
+        rhoRetainUpgrade.getDescription = () => `Progress in $\\rho$ mode is retained when swapping`;
+        rhoRetainUpgrade.boughtOrRefunded = (_) => updateAvailability();
+        rhoRetainUpgrade.maxLevel = 1;
+    }
+    {
         rhoParallelUpgrade = theory.createPermanentUpgrade(7, currencyRho, new ConstantCost(rhoParallelCost));
         rhoParallelUpgrade.getDescription = () => `Allow $\\rho$ to be run in parallel with $\\alpha$ (${rhoParallelUpgrade.level + alphaParallelUpgrade.level}/2)`;
         rhoParallelUpgrade.getInfo = () => rhoParallelUpgrade.getDescription() + ". You need both upgrades to enable the feature.";
@@ -848,7 +875,10 @@ var updateAvailability = () => {
 
     // Perma upgrades
     swapTimeOverlay.isAvailable = rhoUnlock.level > 0 && !parallelMode;
-    rhoParallelUpgrade.isAvailable = msLevelIncreasePerma.level == 6;
+    alphaRetainUpgrade.isAvailable = rhoUnlock.level > 0;
+    rhoRetainUpgrade.isAvailable = rhoUnlock.level > 0;
+    rhoParallelUpgrade.isAvailable = msLevelIncreasePerma.level == 6
+        && alphaRetainUpgrade.level == 1 && rhoRetainUpgrade.level == 1;
 
     // Upgrades
     for (var v of [q1,a0,a1,a2,a3,b1,b2]) {
@@ -1200,36 +1230,43 @@ var getEquationOverlay = () =>
 }
 
 var createSwitcherMenu = () => {
+    const retained = alphaMode ? alphaRetainUpgrade.level > 0 : rhoRetainUpgrade.level > 0;
+    const label1 = ui.createLatexLabel({
+        margin: new Thickness(0, 0, 0, 6),
+        text: () => {
+            const newcurrency = Utils.getMath(alphaMode ? "\\rho" : "\\alpha")
+            return `Swap $h$ and $k$ in the integral and switch the currency to ${newcurrency}.`;
+        },
+        horizontalTextAlignment: TextAlignment.CENTER,
+        verticalTextAlignment: TextAlignment.CENTER
+    });
+    const label2 = ui.createLatexLabel({
+        margin: new Thickness(0, 0, 0, 6),
+        text: () => 
+            alphaRetainUpgrade.level + rhoRetainUpgrade.level == 0
+            ? "Your currencies, levels and $q$ are reset but $\\max{h(\\phi)}$ is kept."
+            : "Your currencies, levels and $q$ for the current mode are reset but $\\max{h(\\phi)}$ is kept.",
+        horizontalTextAlignment: TextAlignment.CENTER,
+        verticalTextAlignment: TextAlignment.CENTER
+    });
+    const button = ui.createButton
+    ({
+        margin: new Thickness(0, 0, 0, 6),
+        text: "Switch Now",
+        onReleased: () => { 
+            switchMode(),
+            menu.hide()
+        }
+    });
+
     let menu = ui.createPopup({
         title: "Switch Mode",
         isPeekable: true,
         content: ui.createStackLayout({
             children: [
-                ui.createLatexLabel({
-                    margin: new Thickness(0, 0, 0, 6),
-                    text: () => {
-                        const newcurrency = Utils.getMath(alphaMode ? "\\rho" : "\\alpha")
-                        return `Swap $h$ and $k$ in the integral and switch the currency to ${newcurrency}.`;
-                    },
-                    horizontalTextAlignment: TextAlignment.CENTER,
-                    verticalTextAlignment: TextAlignment.CENTER
-                }),
-                ui.createLatexLabel({
-                    margin: new Thickness(0, 0, 0, 6),
-                    text: "Your currencies, levels and $q$ are reset"+
-                    " but $\\max{h(\\phi)}$ is kept.",
-                    horizontalTextAlignment: TextAlignment.CENTER,
-                    verticalTextAlignment: TextAlignment.CENTER
-                }),
-                ui.createButton
-                ({
-                    margin: new Thickness(0, 0, 0, 6),
-                    text: "Switch Now",
-                    onReleased: () => { 
-                        switchMode(),
-                        menu.hide()
-                    }
-                })
+                label1,
+                ...(retained ? [] : [label2]),
+                button
             ]
         })
     })
